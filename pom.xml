@@ -6,13 +6,13 @@
     <modelVersion>4.0.0</modelVersion>
 
 
-    <groupId>org.nanoboot.gtdlibre</groupId>
-    <artifactId>gtd-libre</artifactId>
+    <groupId>org.nanoboot.tasklibre</groupId>
+    <artifactId>task-libre</artifactId>
     <version>0.7.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>GTD-Libre</name>
-    <description>GTD-Libre is personal TODO/action manager inspired by GTD (Getting Things Done®) method by David Allen</description>
+    <name>Task-Libre</name>
+    <description>Task-Libre is personal TODO/action manager inspired by GTD (Getting Things Done®) method by David Allen</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -40,7 +40,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>org.nanoboot.gtdlibre.GTDLibreMain</mainClass>
+                            <mainClass>org.nanoboot.tasklibre.TaskLibreMain</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>

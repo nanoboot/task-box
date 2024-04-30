@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="GTD-Libre" default="jar">
+<project name="Task-Libre" default="jar">
 
-	<property file="src/resources/gtd-libre-config.properties"/>
+	<property file="src/resources/task-libre-config.properties"/>
 
-	<property name="dest" value="target/gtd-libre"/>
+	<property name="dest" value="target/task-libre"/>
 	<property name="dest.build" value="${dest}/classes"/>
-	<property name="jar" value="gtd-libre-${build.version}.jar"/>
+	<property name="jar" value="task-libre-${build.version}.jar"/>
 
 
 	<fileset id="lib" dir="lib">
@@ -24,7 +24,7 @@
 		<copy todir="${dest.build}">
 			<fileset dir="src/java" includes="de/wannawork/jcalendar/*.properties"/>
 			<fileset dir="src/resources" includes="**/*"/>
-			<fileset file="src/example/gtd-libre-example.xml"/>
+			<fileset file="src/example/task-libre-example.xml"/>
 		</copy>
 		
 		<javac 
@@ -41,7 +41,7 @@
 				<attribute name="Built-By" value="Ike"/>
 				<attribute name="Build-Version" value="${build.version}"/>
 				<attribute name="Build-Type" value="${build.type}"/>
-				<attribute name="Main-Class" value="org.nanoboot.gtdlibre.GTDLibreMain"/>
+				<attribute name="Main-Class" value="org.nanoboot.tasklibre.TaskLibreMain"/>
 			</manifest>
 		</jar>
 	</target>
