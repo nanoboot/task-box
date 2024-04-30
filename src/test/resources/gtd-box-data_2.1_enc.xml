@@ -503,9 +503,9 @@
   </list>
 </lists>
 <projects>
-  <project id="0" name="GTD-Box-Bug" closed="false" actions="354,352"></project>
+  <project id="0" name="GTD-Free-Bug" closed="false" actions="354,352"></project>
   <project id="33" name="TANGO-CSS" closed="false" actions="59"></project>
-  <project id="25" name="GTD-Box-FR" closed="false" actions="250,353,293,367,363,361"></project>
+  <project id="25" name="GTD-Free-FR" closed="false" actions="250,353,293,367,363,361"></project>
   <project id="27" name="FLASH Rewrite" closed="false" actions="82,81,79,389,407,124"></project>
   <project id="26" name="ANKA 2008" closed="false" actions="126,100,387,438"></project>
   <project id="29" name="Sales" closed="false" actions="365,366,370"></project>

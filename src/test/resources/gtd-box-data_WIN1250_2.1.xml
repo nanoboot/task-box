@@ -17,7 +17,7 @@
     <action id="13" created="1204489077525" resolution="RESOVED" resolved="1215282746137" description="Primoz: kako se gradi bajto?" priority="None"></action>
     <action id="12" created="1204489077525" resolution="TRASHED" resolved="1215282746137" description="Erhard: ANKA-LOCO:  \n\nPrednosti novih: \n-higher integration: 16 output channel in only 2U high 19&quot; rackmount case \n-serial RS485 communication with current measurement data \n-can measure lower currents; 100pA vs 100nA \n-GUI available in JAVA: serial communication supported by microIOC-RS485 \n-hi/low current/vacuum limits configurable \n-pressure determined from tables (fully configurable for each channel)  \n\nKer razvijamo nov LOCO, bi bilo dobro izvedeti se: \n1) Ali bi rabili odklaplanje po kanalih? \n2) Ali bi zeli imeti imeti znotraj locota ze dual controller? 3) Koliko kanalov bi rabili na locotu. \n4) Kaksna je konfiguracija njihovega vakumskega sistema  (koliko pump, kako velike, kako porazdeljene po sektorjih in rackih) \n5) Ali poznajo kakasno podobno  resitev kot je LOCO \n6) Zakaj ne bi vzeli LOCOta in kaj bi bilo treba spremeniti, da se premislijo." priority="None"></action>
     <action id="11" created="1204489077524" resolution="TRASHED" resolved="1215282746138" description="kontaktiraj sepolda:\n(2008-01-16 12:37:11) odpadnik: kaj mu recem, ce ga dobim? \n(2008-01-16 12:37:21) miha_pelko: samo kaj so naslednji koraki \n(2008-01-16 12:37:32) odpadnik: vprasam, kaj so naslednji koraki? \n(2008-01-16 12:37:36) miha_pelko: da nam je Wolfgang reku da je show on \n(2008-01-16 12:37:57) miha_pelko: in da nam je bilo receno, da nas on kontaktira Januarja" priority="None"></action>
-    <action id="10" created="1204489077524" resolution="OPEN" resolved="1215282746138" description="Rok: delnice drï¿½avne Pozavarovalnice Sava" priority="None"></action>
+    <action id="10" created="1204489077524" resolution="OPEN" resolved="1215282746138" description="Rok: delnice državne Pozavarovalnice Sava" priority="None"></action>
     <action id="9" created="1204489077524" resolution="TRASHED" resolved="1215282746138" description="Igor: kako obracunati nadure. Kako obraunati cas prebit na potovanju. Ce v enem mesecu znese cas na potavanju in nadurah toliko da pokrije nekajkratne odsotnosti, alli moram potem kaj pisat nadure ali odstnost?" priority="None"></action>
     <action id="8" created="1204489077523" resolution="TRASHED" resolved="1215282746138" description="kriznarji: poraba elektrike je padla skoraj za 50% od 2006 do 2007" priority="None"></action>
     <action id="7" created="1204489077522" resolution="TRASHED" resolved="1215282746139" description="igor: smo to res hoteli, poslji stroske" priority="None"></action>
@@ -503,9 +503,9 @@
   </list>
 </lists>
 <projects>
-  <project id="0" name="GTD-Box-Bug" closed="false" actions="354,352"></project>
+  <project id="0" name="GTD-Free-Bug" closed="false" actions="354,352"></project>
   <project id="33" name="TANGO-CSS" closed="false" actions="59"></project>
-  <project id="25" name="GTD-Box-FR" closed="false" actions="250,353,293,367,363,361"></project>
+  <project id="25" name="GTD-Free-FR" closed="false" actions="250,353,293,367,363,361"></project>
   <project id="27" name="FLASH Rewrite" closed="false" actions="82,81,79,389,407,124"></project>
   <project id="26" name="ANKA 2008" closed="false" actions="126,100,387,438"></project>
   <project id="29" name="Sales" closed="false" actions="365,366,370"></project>
