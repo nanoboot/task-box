@@ -1,23 +1,36 @@
 /*
  *    Copyright (C) 2008 Igor Kriznar Copyright (C) 2024 Robert Vokac
- *    
+ *
  *    This file is part of Task-Box.
- *    
+ *
  *    Task-Box is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
  *    the Free Software Foundation, either version 3 of the License, or
  *    (at your option) any later version.
- *    
+ *
  *    Task-Box is distributed in the hope that it will be useful,
  *    but WITHOUT ANY WARRANTY; without even the implied warranty of
  *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *    GNU General Public License for more details.
- *    
+ *
  *    You should have received a copy of the GNU General Public License
  *    along with Task-Box.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 package org.nanoboot.forks.org.taskbox;
+
+import junit.framework.TestCase;
+import org.nanoboot.forks.org.taskbox.model.Action;
+import org.nanoboot.forks.org.taskbox.model.Action.Resolution;
+import org.nanoboot.forks.org.taskbox.model.ActionEvent;
+import org.nanoboot.forks.org.taskbox.model.ConsistencyException;
+import org.nanoboot.forks.org.taskbox.model.Folder;
+import org.nanoboot.forks.org.taskbox.model.Folder.FolderType;
+import org.nanoboot.forks.org.taskbox.model.FolderEvent;
+import org.nanoboot.forks.org.taskbox.model.GTDModel;
+import org.nanoboot.forks.org.taskbox.model.GTDModelListener;
+import org.nanoboot.forks.org.taskbox.model.Priority;
+import org.nanoboot.forks.org.taskbox.model.Project;
 
 import java.io.File;
 import java.net.URL;
@@ -25,505 +38,450 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-import junit.framework.TestCase;
-
-import org.nanoboot.forks.org.taskbox.model.Action;
-import org.nanoboot.forks.org.taskbox.model.ActionEvent;
-import org.nanoboot.forks.org.taskbox.model.ConsistencyException;
-import org.nanoboot.forks.org.taskbox.model.Folder;
-import org.nanoboot.forks.org.taskbox.model.FolderEvent;
-import org.nanoboot.forks.org.taskbox.model.GTDModel;
-import org.nanoboot.forks.org.taskbox.model.GTDModelListener;
-import org.nanoboot.forks.org.taskbox.model.Priority;
-import org.nanoboot.forks.org.taskbox.model.Project;
-import org.nanoboot.forks.org.taskbox.model.Action.Resolution;
-import org.nanoboot.forks.org.taskbox.model.Folder.FolderType;
-
 /**
  * @author ikesan
- *
  */
 public class ModelTest extends TestCase {
-	
-	static class TestModelListener implements GTDModelListener {
-		FolderEvent actionAdded;
-		ActionEvent actionModified;
-		FolderEvent actionRemoved;
-		Folder folderAdded;
-		FolderEvent folderModified;
-		Folder folderRemoved;
-		Folder orderChanges;
-		
-		public void elementAdded(FolderEvent a) {
-			actionAdded= a;
-		}
-		public void elementModified(ActionEvent a) {
-			actionModified=a;
-		}
-		public void elementRemoved(FolderEvent a) {
-			actionRemoved=a;
-		}
-		public void folderAdded(Folder folder) {
-			folderAdded=folder;
-		}
-		public void folderModified(FolderEvent folder) {
-			folderModified=folder;
-		}
-		public void folderRemoved(Folder folder) {
-			folderRemoved=folder;
-		}
-		public void orderChanged(Folder f) {
-			orderChanges=f;
-		}
-	}
-
-	private static final String BAD_DESC = "\"\"\"'''@2!#$%^&*(())\\||||}}{{P:;:::?.>M<nN.b.nbZ#u45g[]@@@///:$$$#@@@////–—‘’‚“”„†‡•…‰€™&#8211;&#8212;&#8216;&#8217;&#8218;&#8220;&#8221;&#8222;&#8224;&#8225;&#8226;&#8230;&#8240;&#8364;&#8482;";
-	
-	GTDModel gtdModel;
-	Folder f1;
-	Project p1;
-	final File testDir= new File("src/test/resources");
-
-	/* (non-Javadoc)
-	 * @see junit.framework.TestCase#setUp()
-	 */
-	@Override
-	protected void setUp() throws Exception {
-		gtdModel= new GTDModel();
-		
-		f1= gtdModel.createFolder("F1", FolderType.ACTION);
-		
-		assertNotNull(f1);
-		assertEquals(gtdModel, f1.getParent());
-		assertEquals(f1, gtdModel.getFolder(f1.getId()));
-		
-		p1= (Project)gtdModel.createFolder("P1", FolderType.PROJECT);
-
-		assertNotNull(p1);
-		assertEquals(gtdModel, p1.getParent());
-		assertEquals(p1, gtdModel.getProject(p1.getId()));
-		assertEquals(p1, gtdModel.getFolder(p1.getId()));
-		
-		assertEquals(8, gtdModel.size());
-		
-		Action a1= gtdModel.createAction(f1, "A1");
-		Action a2= gtdModel.createAction(f1, "A2");
-		Action a3= gtdModel.createAction(f1, "A3");
-		Action a4= gtdModel.createAction(f1, "A4");
-		Action a5= gtdModel.createAction(f1, "A5");
-		
-		assertEquals(5, f1.size());
-		assertEquals(0, p1.size());
-		assertEquals(a5, f1.get(0));
-		assertEquals(a4, f1.get(1));
-		assertEquals(a3, f1.get(2));
-		assertEquals(a2, f1.get(3));
-		assertEquals(a1, f1.get(4));
-		
-		a1.setProject(p1.getId());
-		a2.setProject(p1.getId());
-		a3.setProject(p1.getId());
-
-		assertEquals(p1.getId(), (int)a1.getProject());
-		assertEquals(p1.getId(), (int)a2.getProject());
-		assertEquals(p1.getId(), (int)a3.getProject());
-		assertEquals(3, p1.size());
-		assertEquals(a1, p1.get(0));
-		assertEquals(a2, p1.get(1));
-		assertEquals(a3, p1.get(2));
-		
-		a2.setQueued(true);
-		a3.setQueued(true);
-		a4.setQueued(true);
-
-		assertTrue(a2.isQueued());
-		assertTrue(a3.isQueued());
-		assertTrue(a4.isQueued());
-		assertEquals(3, gtdModel.getQueue().size());
-		assertEquals(a2, gtdModel.getQueue().get(0));
-		assertEquals(a3, gtdModel.getQueue().get(1));
-		assertEquals(a4, gtdModel.getQueue().get(2));
-		
-		URL url= new URL("http://task-box.sourceforge.net/");
-		a1.setUrl(url);
-		
-		assertNotNull(a1.getUrl());
-		assertEquals(url, a1.getUrl());
-		
-		a2.setDescription(BAD_DESC);
-		
-		checkConsistency(gtdModel);
-		
-	}
-	
-	public void testProjectChange() {
-		
-		TestModelListener ml= new TestModelListener();
-		
-		gtdModel.addGTDModelListener(ml);
-		
-		Action a1= f1.get(0);
-		
-		assertNotNull(a1);
-		
-		a1.setProject(p1.getId());
-		
-		assertNotNull(a1.getProject());
-		assertEquals(p1.getId(), (int)a1.getProject());
-		assertEquals(4, p1.size());
-		assertEquals(a1, p1.get(3));
-		
-		assertNotNull(ml.actionModified);
-		assertEquals(a1,ml.actionModified.getAction());
-		assertEquals("project",ml.actionModified.getProperty());
-		assertEquals(null, ml.actionModified.getOldValue());
-		assertEquals(a1.getProject(), ml.actionModified.getNewValue());
-	
-		assertNotNull(ml.actionAdded);
-		assertEquals(a1,ml.actionAdded.getAction());
-		assertEquals(p1,ml.actionAdded.getFolder());
-		
-		checkConsistency(gtdModel);
-	}
-	
-	public void testRemindBuildIn() {
-
-		TestModelListener ml= new TestModelListener();
-
-		gtdModel.addGTDModelListener(ml);
 
-		Date d= new Date();
+    private static final String BAD_DESC =
+            "\"\"\"'''@2!#$%^&*(())\\||||}}{{P:;:::?.>M<nN.b.nbZ#u45g[]@@@///:$$$#@@@////–—‘’‚“”„†‡•…‰€™&#8211;&#8212;&#8216;&#8217;&#8218;&#8220;&#8221;&#8222;&#8224;&#8225;&#8226;&#8230;&#8240;&#8364;&#8482;";
+    final File testDir = new File("src/test/resources");
+    GTDModel gtdModel;
+    Folder f1;
+    Project p1;
 
-		Action a1= f1.get(0);
+    /* (non-Javadoc)
+     * @see junit.framework.TestCase#setUp()
+     */
+    @Override
+    protected void setUp() throws Exception {
+        gtdModel = new GTDModel();
 
-		assertNotNull(a1);
-
-		a1.setRemind(d);
+        f1 = gtdModel.createFolder("F1", FolderType.ACTION);
 
-		assertEquals(d, a1.getRemind());
-
-		assertNotNull(ml.actionModified);
-		assertEquals(a1,ml.actionModified.getAction());
-		assertEquals("remind",ml.actionModified.getProperty());
-		assertEquals(null, ml.actionModified.getOldValue());
-		assertEquals(d, ml.actionModified.getNewValue());
+        assertNotNull(f1);
+        assertEquals(gtdModel, f1.getParent());
+        assertEquals(f1, gtdModel.getFolder(f1.getId()));
 
-		assertNotNull(ml.actionAdded);
-		assertEquals(a1,ml.actionAdded.getAction());
-		assertEquals(gtdModel.getRemindFolder(),ml.actionAdded.getFolder());
+        p1 = (Project) gtdModel.createFolder("P1", FolderType.PROJECT);
 
-		assertEquals(1, gtdModel.getRemindFolder().size());
-		assertEquals(1, gtdModel.getRemindFolder().getOpenCount());
+        assertNotNull(p1);
+        assertEquals(gtdModel, p1.getParent());
+        assertEquals(p1, gtdModel.getProject(p1.getId()));
+        assertEquals(p1, gtdModel.getFolder(p1.getId()));
 
-		a1.setResolution(Resolution.RESOLVED);
+        assertEquals(8, gtdModel.size());
 
-		assertEquals(1, gtdModel.getRemindFolder().size());
-		assertEquals(0, gtdModel.getRemindFolder().getOpenCount());
+        Action a1 = gtdModel.createAction(f1, "A1");
+        Action a2 = gtdModel.createAction(f1, "A2");
+        Action a3 = gtdModel.createAction(f1, "A3");
+        Action a4 = gtdModel.createAction(f1, "A4");
+        Action a5 = gtdModel.createAction(f1, "A5");
 
-		checkConsistency(gtdModel);
-	}
+        assertEquals(5, f1.size());
+        assertEquals(0, p1.size());
+        assertEquals(a5, f1.get(0));
+        assertEquals(a4, f1.get(1));
+        assertEquals(a3, f1.get(2));
+        assertEquals(a2, f1.get(3));
+        assertEquals(a1, f1.get(4));
 
-	public void testPriorityBuildIn() {
+        a1.setProject(p1.getId());
+        a2.setProject(p1.getId());
+        a3.setProject(p1.getId());
 
-		TestModelListener ml= new TestModelListener();
+        assertEquals(p1.getId(), (int) a1.getProject());
+        assertEquals(p1.getId(), (int) a2.getProject());
+        assertEquals(p1.getId(), (int) a3.getProject());
+        assertEquals(3, p1.size());
+        assertEquals(a1, p1.get(0));
+        assertEquals(a2, p1.get(1));
+        assertEquals(a3, p1.get(2));
 
-		gtdModel.addGTDModelListener(ml);
+        a2.setQueued(true);
+        a3.setQueued(true);
+        a4.setQueued(true);
 
-		Priority pr= Priority.Medium;
+        assertTrue(a2.isQueued());
+        assertTrue(a3.isQueued());
+        assertTrue(a4.isQueued());
+        assertEquals(3, gtdModel.getQueue().size());
+        assertEquals(a2, gtdModel.getQueue().get(0));
+        assertEquals(a3, gtdModel.getQueue().get(1));
+        assertEquals(a4, gtdModel.getQueue().get(2));
 
-		Action a1= f1.get(0);
+        URL url = new URL("http://task-box.sourceforge.net/");
+        a1.setUrl(url);
 
-		assertNotNull(a1);
-		assertNotNull(a1.getPriority());
-		assertEquals(Priority.None, a1.getPriority());
+        assertNotNull(a1.getUrl());
+        assertEquals(url, a1.getUrl());
 
-		a1.setPriority(pr);
+        a2.setDescription(BAD_DESC);
 
-		assertEquals(pr, a1.getPriority());
+        checkConsistency(gtdModel);
 
-		assertNotNull(ml.actionModified);
-		assertEquals(a1,ml.actionModified.getAction());
-		assertEquals("priority",ml.actionModified.getProperty());
-		assertEquals(Priority.None, ml.actionModified.getOldValue());
-		assertEquals(pr, ml.actionModified.getNewValue());
+    }
 
-		assertNotNull(ml.actionAdded);
-		assertEquals(a1,ml.actionAdded.getAction());
-		assertEquals(gtdModel.getPriorityFolder(),ml.actionAdded.getFolder());
+    public void testProjectChange() {
 
-		assertEquals(1, gtdModel.getPriorityFolder().size());
-		assertEquals(1, gtdModel.getPriorityFolder().getOpenCount());
+        TestModelListener ml = new TestModelListener();
 
-		a1.setResolution(Resolution.RESOLVED);
+        gtdModel.addGTDModelListener(ml);
 
-		assertEquals(1, gtdModel.getPriorityFolder().size());
-		assertEquals(0, gtdModel.getPriorityFolder().getOpenCount());
+        Action a1 = f1.get(0);
 
+        assertNotNull(a1);
 
-		ml= new TestModelListener();
-		gtdModel.addGTDModelListener(ml);
-		pr= Priority.High;
-		a1= f1.get(1);
+        a1.setProject(p1.getId());
 
-		assertNotNull(a1);
-		assertNotNull(a1.getPriority());
-		assertEquals(Priority.None, a1.getPriority());
+        assertNotNull(a1.getProject());
+        assertEquals(p1.getId(), (int) a1.getProject());
+        assertEquals(4, p1.size());
+        assertEquals(a1, p1.get(3));
 
-		a1.setPriority(pr);
+        assertNotNull(ml.actionModified);
+        assertEquals(a1, ml.actionModified.getAction());
+        assertEquals("project", ml.actionModified.getProperty());
+        assertEquals(null, ml.actionModified.getOldValue());
+        assertEquals(a1.getProject(), ml.actionModified.getNewValue());
 
-		assertEquals(pr, a1.getPriority());
+        assertNotNull(ml.actionAdded);
+        assertEquals(a1, ml.actionAdded.getAction());
+        assertEquals(p1, ml.actionAdded.getFolder());
 
-		assertNotNull(ml.actionModified);
-		assertEquals(a1,ml.actionModified.getAction());
-		assertEquals("priority",ml.actionModified.getProperty());
-		assertEquals(Priority.None, ml.actionModified.getOldValue());
-		assertEquals(pr, ml.actionModified.getNewValue());
+        checkConsistency(gtdModel);
+    }
 
-		assertNotNull(ml.actionAdded);
-		assertEquals(a1,ml.actionAdded.getAction());
-		assertEquals(gtdModel.getPriorityFolder(),ml.actionAdded.getFolder());
+    public void testRemindBuildIn() {
 
-		assertEquals(2, gtdModel.getPriorityFolder().size());
-		assertEquals(1, gtdModel.getPriorityFolder().getOpenCount());
+        TestModelListener ml = new TestModelListener();
 
-		ml= new TestModelListener();
-		gtdModel.addGTDModelListener(ml);
+        gtdModel.addGTDModelListener(ml);
 
-		a1.setPriority(Priority.None);
+        Date d = new Date();
 
-		assertEquals(Priority.None, a1.getPriority());
+        Action a1 = f1.get(0);
 
-		assertNotNull(ml.actionModified);
-		assertEquals(a1,ml.actionModified.getAction());
-		assertEquals("priority",ml.actionModified.getProperty());
-		assertEquals(Priority.None, ml.actionModified.getNewValue());
-		assertEquals(pr, ml.actionModified.getOldValue());
+        assertNotNull(a1);
 
-		assertNotNull(ml.actionRemoved);
-		assertEquals(a1,ml.actionRemoved.getAction());
-		assertEquals(gtdModel.getPriorityFolder(),ml.actionRemoved.getFolder());
+        a1.setRemind(d);
 
-		assertEquals(1, gtdModel.getPriorityFolder().size());
-		assertEquals(0, gtdModel.getPriorityFolder().getOpenCount());
+        assertEquals(d, a1.getRemind());
 
-		checkConsistency(gtdModel);
-	}
+        assertNotNull(ml.actionModified);
+        assertEquals(a1, ml.actionModified.getAction());
+        assertEquals("remind", ml.actionModified.getProperty());
+        assertEquals(null, ml.actionModified.getOldValue());
+        assertEquals(d, ml.actionModified.getNewValue());
 
-	public void testImport() {
-		File f=null;
-		try {
+        assertNotNull(ml.actionAdded);
+        assertEquals(a1, ml.actionAdded.getAction());
+        assertEquals(gtdModel.getRemindFolder(), ml.actionAdded.getFolder());
 
-			GTDModel m= new GTDModel();
-			Folder f1= m.createFolder("F1", FolderType.ACTION);
-			f1.setClosed(true);
+        assertEquals(1, gtdModel.getRemindFolder().size());
+        assertEquals(1, gtdModel.getRemindFolder().getOpenCount());
 
-			f= new File(testDir,"test.xml");
+        a1.setResolution(Resolution.RESOLVED);
 
-			gtdModel.store(f);
+        assertEquals(1, gtdModel.getRemindFolder().size());
+        assertEquals(0, gtdModel.getRemindFolder().getOpenCount());
 
-			m.importFile(f);
+        checkConsistency(gtdModel);
+    }
 
-			checkConsistency(m);
+    public void testPriorityBuildIn() {
 
-			assertContentEquals(gtdModel,m);
+        TestModelListener ml = new TestModelListener();
 
-			if (f!=null) {
-				f.delete();
-			}
+        gtdModel.addGTDModelListener(ml);
 
-		} catch (Exception e) {
-			e.printStackTrace();
-			fail(e.getMessage());
-		}
-	}
+        Priority pr = Priority.Medium;
 
-	public void testLoad() {
-		File f=null;
-		try {
+        Action a1 = f1.get(0);
 
-			GTDModel m= new GTDModel();
+        assertNotNull(a1);
+        assertNotNull(a1.getPriority());
+        assertEquals(Priority.None, a1.getPriority());
 
-			f= new File(testDir,"test.xml");
+        a1.setPriority(pr);
 
-			gtdModel.store(f);
+        assertEquals(pr, a1.getPriority());
 
-			m.load(f);
+        assertNotNull(ml.actionModified);
+        assertEquals(a1, ml.actionModified.getAction());
+        assertEquals("priority", ml.actionModified.getProperty());
+        assertEquals(Priority.None, ml.actionModified.getOldValue());
+        assertEquals(pr, ml.actionModified.getNewValue());
 
-			checkConsistency(m);
+        assertNotNull(ml.actionAdded);
+        assertEquals(a1, ml.actionAdded.getAction());
+        assertEquals(gtdModel.getPriorityFolder(), ml.actionAdded.getFolder());
 
-			assertContentEquals(gtdModel,m);
+        assertEquals(1, gtdModel.getPriorityFolder().size());
+        assertEquals(1, gtdModel.getPriorityFolder().getOpenCount());
 
+        a1.setResolution(Resolution.RESOLVED);
 
-		} catch (Exception e) {
-			e.printStackTrace();
-			fail(e.getMessage());
-		} finally {
-			if (f!=null) {
-				f.delete();
-			}
-		}
-	}
+        assertEquals(1, gtdModel.getPriorityFolder().size());
+        assertEquals(0, gtdModel.getPriorityFolder().getOpenCount());
 
-	public void testLoadWIN1250() {
-		File f= new File(testDir,"task-box-data_WIN1250_2.1.xml");
-		File f1= new File(testDir,"task-box-data1.xml");
+        ml = new TestModelListener();
+        gtdModel.addGTDModelListener(ml);
+        pr = Priority.High;
+        a1 = f1.get(1);
 
-		try {
+        assertNotNull(a1);
+        assertNotNull(a1.getPriority());
+        assertEquals(Priority.None, a1.getPriority());
 
+        a1.setPriority(pr);
 
-			GTDModel m1= new GTDModel();
-			GTDModel m2= new GTDModel();
+        assertEquals(pr, a1.getPriority());
 
-			m1.load(f);
+        assertNotNull(ml.actionModified);
+        assertEquals(a1, ml.actionModified.getAction());
+        assertEquals("priority", ml.actionModified.getProperty());
+        assertEquals(Priority.None, ml.actionModified.getOldValue());
+        assertEquals(pr, ml.actionModified.getNewValue());
 
-			checkConsistency(m1);
+        assertNotNull(ml.actionAdded);
+        assertEquals(a1, ml.actionAdded.getAction());
+        assertEquals(gtdModel.getPriorityFolder(), ml.actionAdded.getFolder());
 
-			m1.store(f1);
+        assertEquals(2, gtdModel.getPriorityFolder().size());
+        assertEquals(1, gtdModel.getPriorityFolder().getOpenCount());
 
-			m2.load(f1);
+        ml = new TestModelListener();
+        gtdModel.addGTDModelListener(ml);
 
-			checkConsistency(m2);
+        a1.setPriority(Priority.None);
 
-			assertContentEquals(m1,m2);
+        assertEquals(Priority.None, a1.getPriority());
 
+        assertNotNull(ml.actionModified);
+        assertEquals(a1, ml.actionModified.getAction());
+        assertEquals("priority", ml.actionModified.getProperty());
+        assertEquals(Priority.None, ml.actionModified.getNewValue());
+        assertEquals(pr, ml.actionModified.getOldValue());
 
-		} catch (Exception e) {
-			e.printStackTrace();
-			fail(e.getMessage());
-		} finally {
-			f1.delete();
-		}
-	}
+        assertNotNull(ml.actionRemoved);
+        assertEquals(a1, ml.actionRemoved.getAction());
+        assertEquals(gtdModel.getPriorityFolder(),
+                ml.actionRemoved.getFolder());
 
-	public void testLoadVsImport() {
-		try {
+        assertEquals(1, gtdModel.getPriorityFolder().size());
+        assertEquals(0, gtdModel.getPriorityFolder().getOpenCount());
 
-			File f= new File(testDir,"task-box-data.xml");
+        checkConsistency(gtdModel);
+    }
 
-			GTDModel m1= new GTDModel();
-			GTDModel m2= new GTDModel();
+    public void testImport() {
+        File f = null;
+        try {
 
-			m1.load(f);
-			m2.importFile(f);
+            GTDModel m = new GTDModel();
+            Folder f1 = m.createFolder("F1", FolderType.ACTION);
+            f1.setClosed(true);
 
-			checkConsistency(m1);
-			checkConsistency(m2);
+            f = new File(testDir, "test.xml");
 
-			assertContentEquals(m1,m2);
+            gtdModel.store(f);
 
+            m.importFile(f);
 
-		} catch (Exception e) {
-			e.printStackTrace();
-			fail(e.getMessage());
-		}
-	}
+            checkConsistency(m);
 
-	public void testLoadSaveLoad() {
-		File f= new File(testDir,"task-box-data.xml");
-		File f1= new File(testDir,"task-box-data1.xml");
+            assertContentEquals(gtdModel, m);
 
-		try {
+            if (f != null) {
+                f.delete();
+            }
 
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail(e.getMessage());
+        }
+    }
 
-			GTDModel m1= new GTDModel();
-			GTDModel m2= new GTDModel();
+    public void testLoad() {
+        File f = null;
+        try {
 
-			m1.load(f);
+            GTDModel m = new GTDModel();
 
-			checkConsistency(m1);
+            f = new File(testDir, "test.xml");
 
-			m1.store(f1);
+            gtdModel.store(f);
 
-			m2.load(f1);
+            m.load(f);
 
-			checkConsistency(m2);
+            checkConsistency(m);
 
-			assertContentEquals(m1,m2);
+            assertContentEquals(gtdModel, m);
 
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail(e.getMessage());
+        } finally {
+            if (f != null) {
+                f.delete();
+            }
+        }
+    }
 
-		} catch (Exception e) {
-			e.printStackTrace();
-			fail(e.getMessage());
-		} finally {
-			f1.delete();
-		}
-	}
+    public void testLoadWIN1250() {
+        File f = new File(testDir, "task-box-data_WIN1250_2.1.xml");
+        File f1 = new File(testDir, "task-box-data1.xml");
 
-	public void testSaveLoad() {
-		File f= new File(testDir,"task-box-data-s.xml");
+        try {
 
-		try {
+            GTDModel m1 = new GTDModel();
+            GTDModel m2 = new GTDModel();
 
-			gtdModel.store(f);
+            m1.load(f);
 
-			GTDModel m1= new GTDModel();
+            checkConsistency(m1);
 
-			m1.load(f);
+            m1.store(f1);
 
-			checkConsistency(m1);
+            m2.load(f1);
 
-			assertEquals(BAD_DESC, m1.getFolder(f1.getId()).get(3).getDescription());
+            checkConsistency(m2);
 
-			assertContentEquals(gtdModel,m1);
+            assertContentEquals(m1, m2);
 
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail(e.getMessage());
+        } finally {
+            f1.delete();
+        }
+    }
 
-		} catch (Exception e) {
-			e.printStackTrace();
-			fail(e.getMessage());
-		} finally {
-			f.delete();
-		}
-	}
+    public void testLoadVsImport() {
+        try {
 
-	public void test21vs20() {
-		File f= new File(testDir,"task-box-data_2.0.xml");
-		File f1= new File(testDir,"test.xml");
+            File f = new File(testDir, "task-box-data.xml");
 
-		try {
+            GTDModel m1 = new GTDModel();
+            GTDModel m2 = new GTDModel();
 
+            m1.load(f);
+            m2.importFile(f);
 
-			GTDModel m1= new GTDModel();
-			GTDModel m2= new GTDModel();
+            checkConsistency(m1);
+            checkConsistency(m2);
 
-			m1.load(f);
+            assertContentEquals(m1, m2);
 
-			checkConsistency(m1);
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail(e.getMessage());
+        }
+    }
 
-			m1.store(f1);
+    public void testLoadSaveLoad() {
+        File f = new File(testDir, "task-box-data.xml");
+        File f1 = new File(testDir, "task-box-data1.xml");
 
-			m2.load(f1);
+        try {
 
-			checkConsistency(m2);
+            GTDModel m1 = new GTDModel();
+            GTDModel m2 = new GTDModel();
 
-			assertContentEquals(m1,m2);
+            m1.load(f);
 
+            checkConsistency(m1);
 
-		} catch (Exception e) {
-			e.printStackTrace();
-			fail(e.getMessage());
-		} finally {
-			f1.delete();
-		}
-	}
+            m1.store(f1);
 
-	private void assertContentEquals(GTDModel m1, GTDModel m2) {
-		assertEquals(m1.size(), m2.size());
-		assertEquals(m1.projects().length,m2.projects().length);
-		assertEquals(m1.folders().length,m2.folders().length);
+            m2.load(f1);
 
-		Folder[] ff2= m2.folders();
-		Folder[] ff1= m1.folders();
+            checkConsistency(m2);
 
-		Map<String, Folder> m= new HashMap<>();
+            assertContentEquals(m1, m2);
 
-		for (Folder actions : ff2) {
-			m.put(actions.getName(), actions);
-		}
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail(e.getMessage());
+        } finally {
+            f1.delete();
+        }
+    }
 
-		for (Folder f1 : ff1) {
-			Folder f2 = m.get(f1.getName());
+    public void testSaveLoad() {
+        File f = new File(testDir, "task-box-data-s.xml");
 
-			assertEquals(f1.getName(), f2.getName());
+        try {
+
+            gtdModel.store(f);
+
+            GTDModel m1 = new GTDModel();
+
+            m1.load(f);
+
+            checkConsistency(m1);
+
+            assertEquals(BAD_DESC,
+                    m1.getFolder(f1.getId()).get(3).getDescription());
+
+            assertContentEquals(gtdModel, m1);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail(e.getMessage());
+        } finally {
+            f.delete();
+        }
+    }
+
+    public void test21vs20() {
+        File f = new File(testDir, "task-box-data_2.0.xml");
+        File f1 = new File(testDir, "test.xml");
+
+        try {
+
+            GTDModel m1 = new GTDModel();
+            GTDModel m2 = new GTDModel();
+
+            m1.load(f);
+
+            checkConsistency(m1);
+
+            m1.store(f1);
+
+            m2.load(f1);
+
+            checkConsistency(m2);
+
+            assertContentEquals(m1, m2);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail(e.getMessage());
+        } finally {
+            f1.delete();
+        }
+    }
+
+    private void assertContentEquals(GTDModel m1, GTDModel m2) {
+        assertEquals(m1.size(), m2.size());
+        assertEquals(m1.projects().length, m2.projects().length);
+        assertEquals(m1.folders().length, m2.folders().length);
+
+        Folder[] ff2 = m2.folders();
+        Folder[] ff1 = m1.folders();
+
+        Map<String, Folder> m = new HashMap<>();
+
+        for (Folder actions : ff2) {
+            m.put(actions.getName(), actions);
+        }
+
+        for (Folder f1 : ff1) {
+            Folder f2 = m.get(f1.getName());
+
+            assertEquals(f1.getName(), f2.getName());
 /*			if (f1.getName().equals("ANKA 2008")) {
 				System.out.println(f1);
 				for (Action action : f1) {
@@ -535,106 +493,144 @@ public class ModelTest extends TestCase {
 				}
 			}
 */
-			assertEquals(f1.getName(), f1.size(), f2.size());
-			assertEquals(f1.getType(), f2.getType());
+            assertEquals(f1.getName(), f1.size(), f2.size());
+            assertEquals(f1.getType(), f2.getType());
 
-			if (!f1.isProject() && f1.getId() != m1.getResolvedFolder().getId()
-				&& f1.getId() != m1.getDeletedFolder().getId()) {
-				for (int i = 0; i < f1.size(); i++) {
-					Action a1 = f1.get(i);
-					Action a2 = f2.get(i);
-					assertEquals(f1.getName(), a1.getDescription(),
-							a2.getDescription());
-					assertEquals(f1.getName(), a1.getUrl(), a2.getUrl());
-					assertEquals(f1.getName(), a1.getPriority(),
-							a2.getPriority());
-					assertEquals(f1.getName(), a1.getRemind(), a2.getRemind());
-					if (a1.getProject() != null) {
-						assertNotNull(a2.getProject());
-						assertEquals(m1.getProject(a1.getProject()).getName(),
-								m2.getProject(a2.getProject()).getName());
-					}
-				}
-			}
-		}
-	}
+            if (!f1.isProject() && f1.getId() != m1.getResolvedFolder().getId()
+                && f1.getId() != m1.getDeletedFolder().getId()) {
+                for (int i = 0; i < f1.size(); i++) {
+                    Action a1 = f1.get(i);
+                    Action a2 = f2.get(i);
+                    assertEquals(f1.getName(), a1.getDescription(),
+                            a2.getDescription());
+                    assertEquals(f1.getName(), a1.getUrl(), a2.getUrl());
+                    assertEquals(f1.getName(), a1.getPriority(),
+                            a2.getPriority());
+                    assertEquals(f1.getName(), a1.getRemind(), a2.getRemind());
+                    if (a1.getProject() != null) {
+                        assertNotNull(a2.getProject());
+                        assertEquals(m1.getProject(a1.getProject()).getName(),
+                                m2.getProject(a2.getProject()).getName());
+                    }
+                }
+            }
+        }
+    }
 
-	public void testMove() {
-		try {
+    public void testMove() {
+        try {
 
-			Folder f= f1;
+            Folder f = f1;
 
-			assertNotNull(f);
+            assertNotNull(f);
 
-			assertEquals(5, f.size());
-			assertEquals("A5", f.get(0).getDescription());
-			assertEquals("A4", f.get(1).getDescription());
-			assertEquals("A3", f.get(2).getDescription());
-			assertEquals(BAD_DESC, f.get(3).getDescription());
-			assertEquals("A1", f.get(4).getDescription());
+            assertEquals(5, f.size());
+            assertEquals("A5", f.get(0).getDescription());
+            assertEquals("A4", f.get(1).getDescription());
+            assertEquals("A3", f.get(2).getDescription());
+            assertEquals(BAD_DESC, f.get(3).getDescription());
+            assertEquals("A1", f.get(4).getDescription());
 
-			assertEquals(false, f.get(0).canMoveUp());
-			assertEquals(true, f.get(0).canMoveDown());
+            assertEquals(false, f.get(0).canMoveUp());
+            assertEquals(true, f.get(0).canMoveDown());
 
-			f.get(0).moveDown();
+            f.get(0).moveDown();
 
-			assertEquals("A4", f.get(0).getDescription());
-			assertEquals("A5", f.get(1).getDescription());
-			assertEquals("A3", f.get(2).getDescription());
-			assertEquals(BAD_DESC, f.get(3).getDescription());
-			assertEquals("A1", f.get(4).getDescription());
+            assertEquals("A4", f.get(0).getDescription());
+            assertEquals("A5", f.get(1).getDescription());
+            assertEquals("A3", f.get(2).getDescription());
+            assertEquals(BAD_DESC, f.get(3).getDescription());
+            assertEquals("A1", f.get(4).getDescription());
 
-			f.get(1).moveDown();
+            f.get(1).moveDown();
 
-			assertEquals("A4", f.get(0).getDescription());
-			assertEquals("A3", f.get(1).getDescription());
-			assertEquals("A5", f.get(2).getDescription());
-			assertEquals(BAD_DESC, f.get(3).getDescription());
-			assertEquals("A1", f.get(4).getDescription());
+            assertEquals("A4", f.get(0).getDescription());
+            assertEquals("A3", f.get(1).getDescription());
+            assertEquals("A5", f.get(2).getDescription());
+            assertEquals(BAD_DESC, f.get(3).getDescription());
+            assertEquals("A1", f.get(4).getDescription());
 
-			f.get(2).moveDown();
-			f.get(3).moveDown();
+            f.get(2).moveDown();
+            f.get(3).moveDown();
 
-			assertEquals("A4", f.get(0).getDescription());
-			assertEquals("A3", f.get(1).getDescription());
-			assertEquals(BAD_DESC, f.get(2).getDescription());
-			assertEquals("A1", f.get(3).getDescription());
-			assertEquals("A5", f.get(4).getDescription());
+            assertEquals("A4", f.get(0).getDescription());
+            assertEquals("A3", f.get(1).getDescription());
+            assertEquals(BAD_DESC, f.get(2).getDescription());
+            assertEquals("A1", f.get(3).getDescription());
+            assertEquals("A5", f.get(4).getDescription());
 
-			assertEquals(true, f.get(4).canMoveUp());
-			assertEquals(false, f.get(4).canMoveDown());
+            assertEquals(true, f.get(4).canMoveUp());
+            assertEquals(false, f.get(4).canMoveDown());
 
-			f.get(4).moveUp();
+            f.get(4).moveUp();
 
-			assertEquals("A4", f.get(0).getDescription());
-			assertEquals("A3", f.get(1).getDescription());
-			assertEquals(BAD_DESC, f.get(2).getDescription());
-			assertEquals("A5", f.get(3).getDescription());
-			assertEquals("A1", f.get(4).getDescription());
+            assertEquals("A4", f.get(0).getDescription());
+            assertEquals("A3", f.get(1).getDescription());
+            assertEquals(BAD_DESC, f.get(2).getDescription());
+            assertEquals("A5", f.get(3).getDescription());
+            assertEquals("A1", f.get(4).getDescription());
 
-			f.get(3).moveUp();
+            f.get(3).moveUp();
 
-			assertEquals("A4", f.get(0).getDescription());
-			assertEquals("A3", f.get(1).getDescription());
-			assertEquals("A5", f.get(2).getDescription());
-			assertEquals(BAD_DESC, f.get(3).getDescription());
-			assertEquals("A1", f.get(4).getDescription());
+            assertEquals("A4", f.get(0).getDescription());
+            assertEquals("A3", f.get(1).getDescription());
+            assertEquals("A5", f.get(2).getDescription());
+            assertEquals(BAD_DESC, f.get(3).getDescription());
+            assertEquals("A1", f.get(4).getDescription());
 
-		} catch (Exception e) {
-			e.printStackTrace();
-			fail(e.getMessage());
-		}
-	}
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail(e.getMessage());
+        }
+    }
 
-	private void checkConsistency(GTDModel m) {
+    private void checkConsistency(GTDModel m) {
 
-		try {
-			GTDModel.checkConsistency(m);
-		} catch (ConsistencyException e) {
-			e.printStackTrace();
-			fail(e.toString());
-		}
+        try {
+            GTDModel.checkConsistency(m);
+        } catch (ConsistencyException e) {
+            e.printStackTrace();
+            fail(e.toString());
+        }
 
-	}
+    }
+
+    static class TestModelListener implements GTDModelListener {
+        FolderEvent actionAdded;
+        ActionEvent actionModified;
+        FolderEvent actionRemoved;
+        Folder folderAdded;
+        FolderEvent folderModified;
+        Folder folderRemoved;
+        Folder orderChanges;
+
+        public void elementAdded(FolderEvent a) {
+            actionAdded = a;
+        }
+
+        public void elementModified(ActionEvent a) {
+            actionModified = a;
+        }
+
+        public void elementRemoved(FolderEvent a) {
+            actionRemoved = a;
+        }
+
+        public void folderAdded(Folder folder) {
+            folderAdded = folder;
+        }
+
+        public void folderModified(FolderEvent folder) {
+            folderModified = folder;
+        }
+
+        public void folderRemoved(Folder folder) {
+            folderRemoved = folder;
+        }
+
+        public void orderChanged(Folder f) {
+            orderChanges = f;
+        }
+    }
 
 }
