@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="Task-Box" default="jar">
+<project name="GTD-Free" default="jar">
 
 	<property file="src/resources/gtd-free-config.properties"/>
 
@@ -41,7 +41,7 @@
 				<attribute name="Built-By" value="Ike"/>
 				<attribute name="Build-Version" value="${build.version}"/>
 				<attribute name="Build-Type" value="${build.type}"/>
-				<attribute name="Main-Class" value="org.nanoboot.forks.org.taskbox.GTDBoxMain"/>
+				<attribute name="Main-Class" value="org.nanoboot.gtdfree.GTDFreeMain"/>
 			</manifest>
 		</jar>
 	</target>
