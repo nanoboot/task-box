@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -28,7 +28,7 @@ import java.util.EventObject;
 public class JournalEntryEvent extends EventObject {
 
 	private static final long serialVersionUID = 1L;
-	private JournalEntry yournalEntry;
+	private JournalEntry journalEntry;
 	private int index;
 	private String property;
 	private Object oldValue;
@@ -40,23 +40,23 @@ public class JournalEntryEvent extends EventObject {
 	 * @param newValue
 	 * @param oldValue
 	 * @param property
-	 * @param yournalEntry
+	 * @param journalEntry
 	 */
-	public JournalEntryEvent(JournalEntry yournalEntry, String property, Object newValue,
+	public JournalEntryEvent(JournalEntry journalEntry, String property, Object newValue,
 			Object oldValue, int index) {
-		super(yournalEntry);
+		super(journalEntry);
 		this.index = index;
 		this.newValue = newValue;
 		this.oldValue = oldValue;
 		this.property = property;
-		this.yournalEntry = yournalEntry;
+		this.journalEntry = journalEntry;
 	}
 
 	/**
-	 * @return the yournalEntry
+	 * @return the journalEntry
 	 */
 	public JournalEntry getJournalEntry() {
-		return yournalEntry;
+		return journalEntry;
 	}
 
 	/**

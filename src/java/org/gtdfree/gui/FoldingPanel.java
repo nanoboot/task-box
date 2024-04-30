@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -36,6 +36,7 @@ import javax.swing.JPanel;
 import javax.swing.JToggleButton;
 
 import org.gtdfree.ApplicationHelper;
+import org.gtdfree.Messages;
 
 /**
  * @author ikesan
@@ -60,7 +61,7 @@ public class FoldingPanel extends JPanel {
 			setSelectedIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_unfolded));
 			setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_folded));
 			setPreferredSize(new Dimension(getPreferredSize().width,21));
-			setToolTipText("Displays/hides panel with '"+name+"'.");
+			setToolTipText(Messages.getString("FoldingPanel.0")+name+Messages.getString("FoldingPanel.1")); //$NON-NLS-1$ //$NON-NLS-2$
 			
 			addItemListener(new ItemListener() {
 			
@@ -87,7 +88,7 @@ public class FoldingPanel extends JPanel {
 
 		setLayout(new GridBagLayout());
 		
-		titleLabel= new JLabel("");
+		titleLabel= new JLabel(""); //$NON-NLS-1$
 		titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD));
 		add(titleLabel, new GridBagConstraints(0,0,1,1,1,0,GridBagConstraints.WEST,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
 

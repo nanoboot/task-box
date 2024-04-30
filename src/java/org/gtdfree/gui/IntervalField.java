@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -25,9 +25,8 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 
 import javax.swing.InputVerifier;
 import javax.swing.JButton;
@@ -40,6 +39,8 @@ import org.gtdfree.journal.Interval;
 import org.gtdfree.journal.JournalEntry;
 import org.gtdfree.journal.JournalEntryEvent;
 import org.gtdfree.journal.JournalEntryListener;
+import org.gtdfree.journal.JournalModel;
+import org.gtdfree.journal.JournalTools;
 
 /**
  * @author ikesan
@@ -50,26 +51,50 @@ public class IntervalField extends JPanel implements JournalEntryListener {
 	private static final long serialVersionUID = 1L;
 	private JournalEntry entry;
 	private Interval interval;
-	private int index;
+	//private int index;
 	private JTextField field;
-	private static final DateFormat format= new SimpleDateFormat("HH:mm");
+	//private static final DateFormat format= new SimpleDateFormat("HH:mm");
 	private boolean setting;
 	private IntervalFieldPanel parent;
 	private boolean removeEnabled=true;
 	private JButton removeButton;
 	private Dimension minFieldSize;
 	
+	private static Interval activeInterval;
+	
+	private static Thread intervalUpdater;
+	
+	static {
+		intervalUpdater = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					while(true) {
+						synchronized(intervalUpdater) {
+							if(activeInterval == null) { continue; }
+							activeInterval.setEnd(JournalTools.secondsOfDay());
+						}
+						Thread.sleep(1000);
+					}
+				} catch (InterruptedException ie) {				
+				}
+			}
+		});
+		intervalUpdater.setDaemon(true);
+		intervalUpdater.start();
+	}
+	
 	public IntervalField() {
 	}
 	
-	public IntervalField(IntervalFieldPanel parent, JournalEntry entry, int index) {
-		initialize(parent, entry, index);
+	public IntervalField(IntervalFieldPanel parent, JournalEntry entry, Interval interval) {
+		initialize(parent, entry, interval);
 	}
 
-	private void initialize(IntervalFieldPanel parent, JournalEntry entry, int index) {
+	private void initialize(IntervalFieldPanel parent, JournalEntry entry, Interval interval) {
+		this.parent = parent;
 		this.entry = entry;
-		this.index=index;
-		this.parent=parent;
+		this.interval = interval;
 		
 		setLayout(new GridBagLayout());
 		
@@ -79,14 +104,26 @@ public class IntervalField extends JPanel implements JournalEntryListener {
 			@Override
 			public boolean verify(JComponent input) {
 				String s= ((JTextField)input).getText();
-				return toInterval(s)!=null;
+				return toInterval(IntervalField.this.interval, s);
 			}
 		});
+		// Is this really the right event?
 		field.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				setting=true;
-				updateInterval(toInterval(field.getText()));
+				if(toInterval(IntervalField.this.interval, field.getText())) {
+					updateInterval();
+				}
+				setting=false;
+			}
+		});
+		field.addFocusListener(new FocusAdapter() {
+			@Override
+			public void focusLost(FocusEvent e) {
+				setting=true;
+				toInterval(IntervalField.this.interval, field.getText());
+				updateInterval();
 				setting=false;
 			}
 		});
@@ -102,8 +139,14 @@ public class IntervalField extends JPanel implements JournalEntryListener {
 		
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				int i= interval.getEnd();
-				IntervalField.this.parent.addInterval(new Interval(i,i+60));
+				//int i = interval.getEnd();
+				IntervalField newField = IntervalField.this.parent.addInterval(
+						new Interval(IntervalField.this.entry, 
+								JournalTools.secondsOfDay(), JournalTools.secondsOfDay())
+				);
+				synchronized(intervalUpdater) {
+					activeInterval = newField.interval;
+				}
 			}
 		});
 		add(b, new GridBagConstraints(1,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,11,0,0),0,0));
@@ -115,34 +158,30 @@ public class IntervalField extends JPanel implements JournalEntryListener {
 		
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				IntervalField.this.parent.removeField(IntervalField.this);
+				IntervalField.this.entry.removeInterval(IntervalField.this.interval);
 			}
 		});
 		add(removeButton, new GridBagConstraints(2,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
 
-		updateInterval(entry.getInterval(index));
+		updateInterval();
 	}
 	
 	@Override
 	public void journalEntryIntervalRemoved(JournalEntryEvent e) {
-		if (e.getIndex()==IntervalField.this.index) {
+		if (e.getOldValue() == this.interval) {
+			parent.remove(this);
 			release();
-		} else if (e.getIndex()<IntervalField.this.index) {
-			IntervalField.this.index--;
 		}
-
 	}
 
 	@Override
 	public void journalEntryIntervalAdded(JournalEntryEvent e) {
-		//
-
 	}
 
 	@Override
 	public void journalEntryChanged(JournalEntryEvent e) {
-		if (e.getIndex()==IntervalField.this.index) {
-			updateInterval((Interval)e.getNewValue());
+		if(e.getNewValue() == this.interval) {
+			updateInterval();
 		}
 	}
 
@@ -154,49 +193,29 @@ public class IntervalField extends JPanel implements JournalEntryListener {
 	}
 
 	private String toString(Interval i) {
-		StringBuilder sb= new StringBuilder(16);
-		sb.append(format.format(new Date(i.getStart()*60000)));
-		sb.append(" - ");
-		sb.append(format.format(new Date(i.getEnd()*60000)));
-		return sb.toString();
+		return JournalModel.timeToString(i.getStart()) + " - " + JournalModel.timeToString(i.getEnd()); //$NON-NLS-1$
 	}
 	
-	private Interval toInterval(String s) {
-		if (s.length()!=13) {
-			return null;
+	private boolean toInterval(Interval i, String s) {
+		String[] startEnd = s.split("-"); //$NON-NLS-1$
+		if(startEnd.length != 2) {
+			return false;
+		}
+		int start = JournalModel.timeFromString(startEnd[0]);
+		int end = JournalModel.timeFromString(startEnd[1]);
+		if(start == -1 || end == -1) {
+			return false;
 		}
 		
-		String s1= s.substring(0, 2);
-		Integer t1= Integer.parseInt(s1);
-		t1*=60;
-		s1= s.substring(3, 5);
-		t1+= Integer.parseInt(s1);
-
-		s1= s.substring(8, 10);
-		Integer t2= Integer.parseInt(s1);
-		t2*=60;
-		s1= s.substring(11, 13);
-		t2+= Integer.parseInt(s1);
+		i.setStart(start);
+		i.setEnd(end);
 		
-		return new Interval(t1,t2);
+		return true;
 	}
-	
-	public void setIndex(int index) {
-		this.index = index;
-	}
-	
-	public void updateInterval(Interval i) {
-		if (i==null || i.equals(interval)) {
-			return;
-		}
-		Interval old= interval;
-		interval=i;
-		if (i!=entry.getInterval(index)) {
-			entry.setInterval(index, i);
-		}
 		
+	public void updateInterval() {
 		if(!setting) {
-			field.setText(toString(i));
+			field.setText(toString(interval));
 		}
 		
 		if (minFieldSize==null) {
@@ -205,8 +224,6 @@ public class IntervalField extends JPanel implements JournalEntryListener {
 			field.setPreferredSize(minFieldSize);
 			validate();
 		}
-		
-		firePropertyChange("interval", old, i);
 	}
 	
 	public boolean isRemoveEnabled() {

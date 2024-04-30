@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -34,6 +34,8 @@ public class GTDFreeTestSuite extends TestSuite {
 	public GTDFreeTestSuite() {
 		addTestSuite(GTDFreeEngineTest.class);
 		addTestSuite(ModelTest.class);
+		addTestSuite(ModelTestXML.class);
+		addTestSuite(ModelTestODB.class);
 		addTestSuite(SaveLoadTest.class);
 	}
 }

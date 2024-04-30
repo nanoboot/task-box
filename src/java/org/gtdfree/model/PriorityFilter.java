@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -20,7 +20,7 @@
 package org.gtdfree.model;
 
 /**
- * Filters acitions with certain priority level.
+ * Filters actions with certain priority level.
  * @author ikesan
  *
  */

@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -27,6 +27,8 @@ import java.io.IOException;
 import javax.swing.JComponent;
 import javax.swing.TransferHandler;
 
+import org.apache.log4j.Logger;
+
 public abstract class StringTransferHandler extends TransferHandler {
 	private static final long serialVersionUID = 1L;
 
@@ -45,17 +47,17 @@ public abstract class StringTransferHandler extends TransferHandler {
 			try {
 				drop= support.getTransferable().getTransferData(f);
 			} catch (UnsupportedFlavorException e) {
-				e.printStackTrace();
+				Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
 			} catch (IOException e) {
-				e.printStackTrace();
+				Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
 			}
 		} else {
 			try {
 				drop= support.getTransferable().getTransferData(DataFlavor.stringFlavor);
 			} catch (UnsupportedFlavorException e) {
-				e.printStackTrace();
+				Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
 			} catch (IOException e) {
-				e.printStackTrace();
+				Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
 			}
 		}
 		if (drop!=null) {
@@ -93,14 +95,17 @@ public abstract class StringTransferHandler extends TransferHandler {
 	@Override
 	protected Transferable createTransferable(JComponent c) {
 		return new Transferable() {
+			@Override
 			public boolean isDataFlavorSupported(DataFlavor flavor) {
 				return DataFlavor.stringFlavor.equals(flavor);
 			}
 		
+			@Override
 			public DataFlavor[] getTransferDataFlavors() {
 				return new DataFlavor[]{DataFlavor.stringFlavor};
 			}
 		
+			@Override
 			public Object getTransferData(DataFlavor flavor)
 					throws UnsupportedFlavorException, IOException {
 				if (flavor.equals(DataFlavor.stringFlavor)) {

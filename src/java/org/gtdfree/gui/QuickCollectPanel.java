@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -27,15 +27,18 @@ import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 
 import javax.swing.AbstractAction;
+import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
 
 import org.gtdfree.ApplicationHelper;
 import org.gtdfree.GTDFreeEngine;
+import org.gtdfree.Messages;
+import org.gtdfree.model.Folder;
 
 
 /**
@@ -46,9 +49,11 @@ public class QuickCollectPanel extends JPanel {
 	
 	private static final long serialVersionUID = 1L;
 	private GTDFreeEngine engine;
-	JTextArea ideaText;
+	InputTextArea ideaText;
 	private AbstractAction clearAction;
 	private AbstractAction doneNoteAction;
+	private JRadioButton destinationInB;
+	private JRadioButton destinationSel;
 	
 	public QuickCollectPanel() {
 		initialize();
@@ -59,31 +64,33 @@ public class QuickCollectPanel extends JPanel {
 		setLayout(new GridBagLayout());
 		
 		int col=0;
-		add(new JLabel("Quick Collect:"),new GridBagConstraints(col++,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(2,4,2,0),0,0));
+		add(new JLabel(Messages.getString("QuickCollectPanel.Quick")),new GridBagConstraints(col++,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(2,4,2,0),0,0)); //$NON-NLS-1$
 		
 		JScrollPane jsp= new JScrollPane();
-		ideaText= new JTextArea();
+		ideaText= new InputTextArea();
 		ideaText.setLineWrap(true);
 		ideaText.setWrapStyleWord(true);
 		ideaText.setRows(1);
 		ideaText.setMargin(new Insets(2,4,2,4));
-		ideaText.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "Enter");
-		ideaText.getActionMap().put("Enter", new AbstractAction() {
+		ideaText.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "Enter"); //$NON-NLS-1$
+		ideaText.getActionMap().put("Enter", new AbstractAction() { //$NON-NLS-1$
 			private static final long serialVersionUID = 1348070910974195411L;
 
+			@Override
 			public void actionPerformed(ActionEvent e) {
 				if (getDoneNoteAction().isEnabled()) {
 					getDoneNoteAction().actionPerformed(e);
 				}
 			}
 		});
-		ideaText.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK), "NewLine");
-		ideaText.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.CTRL_DOWN_MASK), "NewLine");
-		ideaText.getActionMap().put("NewLine", new AbstractAction() {
+		ideaText.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK), "NewLine"); //$NON-NLS-1$
+		ideaText.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.CTRL_DOWN_MASK), "NewLine"); //$NON-NLS-1$
+		ideaText.getActionMap().put("NewLine", new AbstractAction() { //$NON-NLS-1$
 			private static final long serialVersionUID = 1L;
 
+			@Override
 			public void actionPerformed(ActionEvent e) {
-				ideaText.insert("\n", ideaText.getCaretPosition());
+				ideaText.insert("\n", ideaText.getCaretPosition()); //$NON-NLS-1$
 			}
 		});
 		jsp.setViewportView(ideaText);
@@ -91,6 +98,21 @@ public class QuickCollectPanel extends JPanel {
 		jsp.setPreferredSize(ideaText.getPreferredScrollableViewportSize());
 		add(jsp,new GridBagConstraints(col++,0,1,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(2,4,2,0),0,0));
 		
+		ButtonGroup bg= new ButtonGroup();
+		
+		destinationInB= new JRadioButton();
+		destinationInB.setText(Messages.getString("QuickCollectPanel.InB.short")); //$NON-NLS-1$
+		destinationInB.setToolTipText(Messages.getString("QuickCollectPanel.InB.desc")); //$NON-NLS-1$
+		destinationInB.setSelected(true);
+		bg.add(destinationInB);
+		add(destinationInB,new GridBagConstraints(col++,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(4,4,4,0),0,0));
+		
+		destinationSel= new JRadioButton();
+		destinationSel.setText(Messages.getString("QuickCollectPanel.Sel.short")); //$NON-NLS-1$
+		destinationSel.setToolTipText(Messages.getString("QuickCollectPanel.Sel.desc")); //$NON-NLS-1$
+		bg.add(destinationSel);
+		add(destinationSel,new GridBagConstraints(col++,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(4,0,4,4),0,0));
+
 		JButton b= new JButton();
 		b.setMargin(new Insets(0,0,0,0));
 		b.setAction(getDoneNoteAction());
@@ -108,11 +130,13 @@ public class QuickCollectPanel extends JPanel {
 
 				private static final long serialVersionUID = 1L;
 
+				@Override
 				public void actionPerformed(ActionEvent e) {
 					ideaText.setText(ApplicationHelper.EMPTY_STRING);
+					ideaText.requestFocus();
 				}
 			};
-			clearAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("InBasketPane.Clear.Tooltip")); //$NON-NLS-1$
+			clearAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("InBasketPane.Clear.desc")); //$NON-NLS-1$
 			clearAction.setEnabled(true);
 			
 		}
@@ -126,15 +150,36 @@ public class QuickCollectPanel extends JPanel {
 			
 				private static final long serialVersionUID = 1L;
 
+				@Override
 				public void actionPerformed(ActionEvent e) {
 					if (ideaText.getText()==null || ideaText.getText().length()==0) {
 						return;
 					}
-					getEngine().getGTDModel().createAction(engine.getGTDModel().getInBucketFolder(), ideaText.getText());
-					ideaText.setText(ApplicationHelper.EMPTY_STRING);
+					
+					if (destinationInB.isSelected()) {
+						
+						getEngine().getGTDModel().createAction(engine.getGTDModel().getInBucketFolder(), ideaText.getText());
+						ideaText.setText(ApplicationHelper.EMPTY_STRING);
+					
+					} else {
+						
+						WorkflowPane wp= getEngine().getActiveWorkflowPane();
+						if (wp!=null) {
+							Folder f= wp.getSelectedFolder();
+							
+							if (f!=null && (f.isUserFolder() || f.isInBucket())) {
+
+								getEngine().getGTDModel().createAction(f, ideaText.getText());
+								ideaText.setText(ApplicationHelper.EMPTY_STRING);
+								
+							}
+						}
+						
+					}
+					
 				}
 			};
-			doneNoteAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("InBasketPane.Add-Tooltip")); //$NON-NLS-1$
+			doneNoteAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("InBasketPane.Add.desc")); //$NON-NLS-1$
 		}
 
 		return doneNoteAction;

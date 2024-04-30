@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -19,52 +19,109 @@
 
 package org.gtdfree.model;
 
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Date;
 
+import org.apache.log4j.Logger;
+import org.gtdfree.model.GTDData.ActionProxy;
+
 public final class Action {
 	
-	public static final String RESOLUTION_PROPERTY_NAME= "resolution";
-	public static final String PROJECT_PROPERTY_NAME= "project";
-	public static final String QUEUED_PROPERTY_NAME= "queued";
-	public static final String REMIND_PROPERTY_NAME= "remind";
-	public static final String PRIORITY_PROPERTY_NAME= "priority";
+	public static final String RESOLUTION_PROPERTY_NAME= "resolution"; //$NON-NLS-1$
+	public static final String PROJECT_PROPERTY_NAME= "project"; //$NON-NLS-1$
+	public static final String QUEUED_PROPERTY_NAME= "queued"; //$NON-NLS-1$
+	public static final String REMIND_PROPERTY_NAME= "remind"; //$NON-NLS-1$
+	public static final String PRIORITY_PROPERTY_NAME= "priority"; //$NON-NLS-1$
 
 	public enum ActionType {Mail,Phone,Meet,Read,Watch};
 	public static enum Resolution {
 		OPEN,DELETED,RESOLVED,STALLED;
 		
 		public static Resolution toResolution(String s) {
-			if ("TRASHED".equalsIgnoreCase(s)) {
+			if ("TRASHED".equalsIgnoreCase(s)) { //$NON-NLS-1$
 				return DELETED;
 			}
-			if ("RESOVED".equalsIgnoreCase(s)) {
+			if ("RESOVED".equalsIgnoreCase(s)) { //$NON-NLS-1$
 				return RESOLVED;
 			}
 			return valueOf(s);
 		}
 	};
 	
+	public static final boolean hasOpen(Action[] actions) {
+		if (actions!=null) { 
+			for (Action action : actions) {
+				if (action.isOpen()) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	public static final boolean hasNonOpen(Action[] actions) {
+		if (actions!=null) { 
+			for (Action action : actions) {
+				if (!action.isOpen()) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	public static boolean hasDeleted(Action[] actions) {
+		if (actions!=null) { 
+			for (Action action : actions) {
+				if (action.isDeleted()) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	public static boolean hasNonDeleted(Action[] actions) {
+		if (actions!=null) { 
+			for (Action action : actions) {
+				if (!action.isDeleted()) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	private int id;
 	private Date created;
 	private Date resolved;
+	private Date modified;
 	private String description;
-	private Resolution resolution = Resolution.OPEN;
-	private Folder folder;
-	private ActionType type;
-	private URL url;
 	private Date start;
 	private Date remind;
 	private Date due;
 	private Integer project;
 	private boolean queued= false;
-	private Priority priority= Priority.None;
 	
-	public Action(int id, Date created, Date resolved, String description) {
+	private transient Resolution resolution = Resolution.OPEN;
+	private Integer resolutionId = Resolution.OPEN.ordinal();
+	private transient ActionType type;
+	private Integer typeId;
+	private transient Priority priority= Priority.None;
+	private Integer priorityId= Priority.None.ordinal();
+	private transient URL url;
+	private String urlId;
+	private transient ActionProxy proxy;
+
+	public Action(int id, Date created, Date resolved, String description, Date modified) {
 		this.id=id;
 		this.created=created;
+		this.modified=modified;
 		this.resolved=resolved;
-		this.setDescription(description);
+		this.description = description;
+	}
+	public Action(int id, Date created, Date resolved, String description) {
+		this(id,created,resolved,description,new Date());
 	}
 	
 	public boolean isOpen() {
@@ -91,8 +148,15 @@ public final class Action {
 	/**
 	 * @return the owner
 	 */
-	public Folder getFolder() {
-		return folder;
+	public Folder getParent() {
+		if (proxy!=null) {
+			return proxy.getParent();
+		}
+		return null;
+	}
+	
+	public Date getModified() {
+		return modified;
 	}
 
 
@@ -108,7 +172,8 @@ public final class Action {
 		}
 		String old= this.description;
 		this.description = description;
-		if (folder!=null) folder.fireElementModified(this,"description",old,description);
+		modified();
+		if (getParent()!=null) getParent().fireElementModified(this,proxy,"description",old,description); //$NON-NLS-1$
 	}
 
 
@@ -124,17 +189,20 @@ public final class Action {
 	 * @param resolution the resolution to set
 	 */
 	public void setResolution(Resolution resolution) {
-		if (this.resolution==resolution) {
+		if (this.getResolution()==resolution) {
 			return;
 		}
 		Resolution old= this.resolution;
 		this.resolution = resolution;
+		this.resolutionId = resolution.ordinal();
 		if (resolved==null && !isOpen()) {
 			resolved= new Date();
 		} else if (isOpen()) {
 			resolved=null;
 		}
-		if (folder!=null) folder.fireElementModified(this,RESOLUTION_PROPERTY_NAME,old,resolution);
+		modified();
+		if (getParent()!=null) getParent().fireElementModified(this,proxy,RESOLUTION_PROPERTY_NAME,old,resolution);
+		setQueued(false);
 	}
 
 
@@ -142,6 +210,9 @@ public final class Action {
 	 * @return the resolution
 	 */
 	public Resolution getResolution() {
+		if (resolution==null && resolutionId!=null) {
+			resolution= Resolution.values()[resolutionId];
+		}
 		return resolution;
 	}
 
@@ -166,13 +237,17 @@ public final class Action {
 	public void setStart(Date start) {
 		Date old= this.start;
 		this.start = start;
-		if (folder!=null) getFolder().fireElementModified(this,"start",old,start);
+		modified();
+		if (getParent()!=null) getParent().fireElementModified(this,proxy,"start",old,start); //$NON-NLS-1$
 	}
 
 	/**
 	 * @return the type
 	 */
 	public ActionType getType() {
+		if (type==null && typeId!=null) {
+			type= ActionType.values()[typeId];
+		}
 		return type;
 	}
 
@@ -180,18 +255,28 @@ public final class Action {
 	 * @param type the type to set
 	 */
 	public void setType(ActionType type) {
-		if (this.type == type) {
+		if (getType() == type) {
 			return;
 		}
 		ActionType old= this.type;
 		this.type = type;
-		if (folder!=null) getFolder().fireElementModified(this,"type",old,type);
+		this.typeId = type.ordinal();
+		modified();
+		if (getParent()!=null) getParent().fireElementModified(this,proxy,"type",old,type); //$NON-NLS-1$
 	}
 
 	/**
 	 * @return the url
 	 */
 	public URL getUrl() {
+		if (url==null && urlId!=null) {
+			try {
+				url= new URL(urlId);
+			} catch (MalformedURLException e) {
+				urlId=null;
+				Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
+			}
+		}
 		return url;
 	}
 
@@ -199,18 +284,31 @@ public final class Action {
 	 * @param url the url to set
 	 */
 	public void setUrl(URL url) {
-		if ((this.url==null && url==null) || (this.url!=null && this.url.equals(url))) {
+		if ((this.url==null && url==null) || (this.url!=null && url!=null && this.url.toString().equals(url.toString()))) {
 			return;
 		}
 		URL old= this.url;
 		this.url = url;
-		if (folder!=null) getFolder().fireElementModified(this,"url",old,url);
+		if (url!=null) {
+			this.urlId = url.toString();
+		} else {
+			urlId=null;
+		}
+		modified();
+		if (getParent()!=null) getParent().fireElementModified(this,proxy,"url",old,url); //$NON-NLS-1$
+	}
+	
+	private void modified() {
+		modified= new Date();
 	}
 
 	/**
 	 * @return the priority
 	 */
 	public Priority getPriority() {
+		if (priority==null && priorityId!=null) {
+			priority= Priority.values()[priorityId];
+		}
 		return priority;
 	}
 
@@ -218,12 +316,15 @@ public final class Action {
 	 * @param priority the priority to set
 	 */
 	public void setPriority(Priority priority) {
+		if (priority==null) priority=Priority.None;
 		if (this.priority == priority) {
 			return;
 		}
 		Priority old= this.priority;
 		this.priority = priority;
-		if (folder!=null) getFolder().fireElementModified(this,PRIORITY_PROPERTY_NAME,old,priority);
+		this.priorityId = priority.ordinal();
+		modified();
+		if (getParent()!=null) getParent().fireElementModified(this,proxy,PRIORITY_PROPERTY_NAME,old,priority);
 
 	}
 
@@ -240,7 +341,8 @@ public final class Action {
 	public void setRemind(Date remind) {
 		Date old= this.remind;
 		this.remind = remind;
-		if (folder!=null) getFolder().fireElementModified(this,REMIND_PROPERTY_NAME,old,remind);
+		modified();
+		if (getParent()!=null) getParent().fireElementModified(this,proxy,REMIND_PROPERTY_NAME,old,remind);
 	}
 
 	/**
@@ -256,39 +358,47 @@ public final class Action {
 	public void setDue(Date due) {
 		Date old= this.due;
 		this.due = due;
-		if (folder!=null) getFolder().fireElementModified(this,"due",old,due);
+		modified();
+		if (getParent()!=null) getParent().fireElementModified(this,proxy,"due",old,due); //$NON-NLS-1$
 	}
 
 	/**
 	 * @param folder the folder to set
 	 */
-	void setFolder(Folder folder) {
-		this.folder = folder;
+	void setParent(Folder folder) {
+		if (proxy!=null) {
+			proxy.setParent(folder);
+		} else {
+			if (folder!=null) {
+				proxy= folder.getParent().getDataRepository().getProxy(this);
+				proxy.setParent(folder);
+			}
+		}
 	}
 	
 	public void moveUp() {
-		folder.moveUp(this);
+		getParent().moveUp(this);
 	}
 	
 	public void moveDown() {
-		folder.moveDown(this);
+		getParent().moveDown(this);
 	}
 
 	public boolean canMoveUp() {
-		return folder.canMoveUp(this);
+		return getParent().canMoveUp(this);
 	}
 
 	public boolean canMoveDown() {
-		return folder.canMoveDown(this);
+		return getParent().canMoveDown(this);
 	}
 	@Override
 	public String toString() {
 		StringBuilder sb= new StringBuilder();
-		sb.append("Action={id=");
+		sb.append("Action={id="); //$NON-NLS-1$
 		sb.append(id);
-		sb.append(",resolution=");
-		sb.append(resolution);
-		sb.append("}");
+		sb.append(",resolution="); //$NON-NLS-1$
+		sb.append(getResolution());
+		sb.append("}"); //$NON-NLS-1$
 		return sb.toString();
 	}
 
@@ -309,9 +419,13 @@ public final class Action {
 		if (this.project!=null && this.project.equals(project)) {
 			return;
 		}
+		if (this.project==null && project==null) {
+			return;
+		}
 		Integer old= this.project;
 		this.project = project;
-		if (getFolder()!=null) getFolder().fireElementModified(this,PROJECT_PROPERTY_NAME,old,project);
+		modified();
+		if (getParent()!=null) getParent().fireElementModified(this,proxy,PROJECT_PROPERTY_NAME,old,project);
 	}
 	
 	public void copy(Action a) {
@@ -337,15 +451,33 @@ public final class Action {
 	 * @param queued the queued to set
 	 */
 	public void setQueued(boolean queued) {
+		if (queued==this.queued) {
+			return;
+		}
 		this.queued = queued;
-		if (folder!=null) getFolder().fireElementModified(this,QUEUED_PROPERTY_NAME,!queued,queued);
+		modified();
+		if (getParent()!=null) getParent().fireElementModified(this,proxy,QUEUED_PROPERTY_NAME,!queued,queued);
 	}
 
 	public boolean isResolved() {
-		return resolution==Resolution.RESOLVED;
+		return getResolution()==Resolution.RESOLVED;
 	}
 
 	public boolean isDeleted() {
-		return resolution==Resolution.DELETED;
+		return getResolution()==Resolution.DELETED;
+	}
+
+	/**
+	 * @return the proxy
+	 */
+	ActionProxy getProxy() {
+		return proxy;
+	}
+
+	/**
+	 * @param proxy the proxy to set
+	 */
+	void setProxy(ActionProxy proxy) {
+		this.proxy = proxy;
 	}
 }

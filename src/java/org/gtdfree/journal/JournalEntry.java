@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -32,7 +32,7 @@ import org.gtdfree.model.Action;
  */
 public class JournalEntry {
 	
-	private int id;
+	//private int id;
 	private long day;
 	private String comment;
 	private List<Interval> intervals= new ArrayList<Interval>();
@@ -40,16 +40,16 @@ public class JournalEntry {
 	private boolean checked=false;
 	private EventListenerList listeners= new EventListenerList();
 	
-	public JournalEntry(int id) {
-		this.id=id;
+	public JournalEntry(/*int id*/) {
+		//this.id=id;
 	}
 	
 	/**
 	 * @return the id
 	 */
-	public int getId() {
-		return id;
-	}
+//	public int getId() {
+//		return id;
+//	}
 	
 	/**
 	 * @return the day
@@ -67,7 +67,7 @@ public class JournalEntry {
 		}
 		long old= this.day;
 		this.day = day;
-		fireJournalEntryChanged("day", day, old);
+		fireJournalEntryChanged("day", day, old); //$NON-NLS-1$
 	}
 	
 	/**
@@ -86,7 +86,7 @@ public class JournalEntry {
 		}
 		String old= this.comment;
 		this.comment = comment;
-		fireJournalEntryChanged("comment", comment, old);
+		fireJournalEntryChanged("comment", comment, old); //$NON-NLS-1$
 	}
 	
 	/**
@@ -132,7 +132,7 @@ public class JournalEntry {
 			return;
 		}
 		this.checked = checked;
-		fireJournalEntryChanged("checked", checked);
+		fireJournalEntryChanged("checked", checked); //$NON-NLS-1$
 	}
 	
 	public void addInterval(Interval interval) {
@@ -142,6 +142,7 @@ public class JournalEntry {
 	
 	public void removeInterval(Interval interval) {
 		int i= intervals.indexOf(interval);
+		if(i == -1) return;
 		intervals.remove(i);
 		fireJournalEntryIntervalRemoved(interval, i);
 	}
@@ -152,7 +153,7 @@ public class JournalEntry {
 			return;
 		}
 		intervals.set(index, interval);
-		fireJournalEntryChanged(new JournalEntryEvent(this,"intervals",interval,i,index));
+		fireJournalEntryChanged(new JournalEntryEvent(this,"intervals",interval,i,index)); //$NON-NLS-1$
 	}
 	
 	public void addJournalEntryListener(JournalEntryListener l) {
@@ -176,7 +177,7 @@ public class JournalEntry {
 	}
 	
 	private void fireJournalEntryIntervalAdded(Interval it, int ix) {
-		JournalEntryEvent e= new JournalEntryEvent(this,"intervals",it,null,ix);
+		JournalEntryEvent e= new JournalEntryEvent(this,"intervals",it,null,ix); //$NON-NLS-1$
 		
 		JournalEntryListener[] l= listeners.getListeners(JournalEntryListener.class);
 		
@@ -186,7 +187,7 @@ public class JournalEntry {
 	}
 
 	private void fireJournalEntryIntervalRemoved(Interval it, int ix) {
-		JournalEntryEvent e= new JournalEntryEvent(this,"intervals",null,it,ix);
+		JournalEntryEvent e= new JournalEntryEvent(this,"intervals",null,it,ix); //$NON-NLS-1$
 		
 		JournalEntryListener[] l= listeners.getListeners(JournalEntryListener.class);
 		
@@ -208,4 +209,7 @@ public class JournalEntry {
 		return intervals.get(index);
 	}
 
+	public void intervalChanged(Interval interval) {
+		fireJournalEntryChanged(new JournalEntryEvent(this,"intervals",interval,null,-1)); //$NON-NLS-1$
+	}
 }

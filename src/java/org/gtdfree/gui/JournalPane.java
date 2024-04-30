@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -24,9 +24,6 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
-import java.beans.PropertyVetoException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -59,6 +56,7 @@ public class JournalPane extends JPanel {
 	private JCalendarComboBox datePicker;
 	private boolean setting=false;
 	private AbstractAction newJournalEntryAction;
+	//private AbstractAction copyJournalAction;
 	
 	public JournalPane() {
 		initialize();
@@ -71,7 +69,7 @@ public class JournalPane extends JPanel {
 		JPanel jp= new JPanel();
 		jp.setLayout(new GridBagLayout());
 		
-		JButton b= new JButton("<<");
+		JButton b= new JButton("<<"); //$NON-NLS-1$
 		b.addActionListener(new ActionListener() {
 		
 			@Override
@@ -79,10 +77,10 @@ public class JournalPane extends JPanel {
 				setDay(day-7);
 			}
 		});		
-		b.setToolTipText("Previous week");
+		b.setToolTipText("Previous week"); //$NON-NLS-1$
 		jp.add(b, new GridBagConstraints(0,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
 		
-		b= new JButton("<");
+		b= new JButton("<"); //$NON-NLS-1$
 		b.addActionListener(new ActionListener() {
 		
 			@Override
@@ -90,11 +88,11 @@ public class JournalPane extends JPanel {
 				setDay(day-1);
 			}
 		});		
-		b.setToolTipText("Previous day");
+		b.setToolTipText("Previous day"); //$NON-NLS-1$
 		jp.add(b, new GridBagConstraints(1,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
 
 		datePicker= new JCalendarComboBox();
-		datePicker.setDateFormat(new SimpleDateFormat("EEE, d MMM yyyy"));
+		datePicker.setDateFormat(new SimpleDateFormat("EEE, d MMM yyyy")); //$NON-NLS-1$
 		//datePicker.setFieldEditable(false);
 		//datePicker.setShowTodayButton(true);
 		//datePicker.setStripTime(true);
@@ -105,13 +103,13 @@ public class JournalPane extends JPanel {
 			public void stateChanged(ChangeEvent e) {
 				setting=true;
 				//System.out.println("PICKER "+datePicker.getDate().getTime()+" "+((Date)evt.getNewValue()).getTime());
-				setDate((Date)datePicker.getDate());
+				setDate(datePicker.getDate());
 				setting=false;
 			}
 		});
 		jp.add(datePicker, new GridBagConstraints(2,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
 
-		b= new JButton(">");
+		b= new JButton(">"); //$NON-NLS-1$
 		b.addActionListener(new ActionListener() {
 		
 			@Override
@@ -119,9 +117,9 @@ public class JournalPane extends JPanel {
 				setDay(day+1);
 			}
 		});		
-		b.setToolTipText("Next day");
+		b.setToolTipText("Next day"); //$NON-NLS-1$
 		jp.add(b, new GridBagConstraints(3,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
-		b= new JButton(">>");
+		b= new JButton(">>"); //$NON-NLS-1$
 		b.addActionListener(new ActionListener() {
 		
 			@Override
@@ -129,7 +127,7 @@ public class JournalPane extends JPanel {
 				setDay(day+7);
 			}
 		});		
-		b.setToolTipText("Next week");
+		b.setToolTipText("Next week"); //$NON-NLS-1$
 		jp.add(b, new GridBagConstraints(4,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
 		
 		add(jp,new GridBagConstraints(0,0,1,1,1.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL, new Insets(0,0,0,0),0,0));
@@ -143,7 +141,9 @@ public class JournalPane extends JPanel {
 		jp.setLayout(new GridBagLayout());
 		
 		b= new JButton(getNewJournalEntryAction());
-		jp.add(b, new GridBagConstraints(0,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
+		jp.add(b, new GridBagConstraints(0,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(4,4,4,4),0,0));
+//		b= new JButton(getCopyJournalAction());
+//		jp.add(b, new GridBagConstraints(1,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(4,4,4,4),0,0));
 
 		add(jp,new GridBagConstraints(0,2,1,1,1.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL, new Insets(0,0,0,0),0,0));
 
@@ -154,21 +154,44 @@ public class JournalPane extends JPanel {
 		addEntry(en,true);
 	}
 	
+//	private void copyJournalEntry() {
+//		Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection("this"), null);
+//	}
+	
 	private void addEntry(JournalEntry en, boolean last) {
 		JournalEntryPanel ep= new JournalEntryPanel(en);
-		if (entriesPanel.getComponentCount()>1 && last) {
+		if (entriesPanel.getComponentCount()>0 && last) {
 			entriesPanel.remove(entriesPanel.getComponentCount()-1);
 		}
-		entriesPanel.add(ep, new GridBagConstraints(0,entriesPanel.getComponentCount(),1,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,0,0,0),0,0));
+		entriesPanel.add(
+				ep,
+				new GridBagConstraints(0,entriesPanel.getComponentCount(),1,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,0,0,0),0,0)
+		);
 		if (last) {
 			entriesPanel.add(new JPanel(), new GridBagConstraints(0,entriesPanel.getComponentCount(),1,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
 			validate();
 		}
 	}
 	
+//	private Action getCopyJournalAction() {
+//		if (copyJournalAction == null) {
+//			copyJournalAction = new AbstractAction("Copy Journal to Clipboard") {
+//				private static final long serialVersionUID = 1L;
+//
+//				@Override
+//				public void actionPerformed(ActionEvent e) {
+//					copyJournalEntry();
+//				}
+//			};
+//			copyJournalAction.putValue(Action.LARGE_ICON_KEY, ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_clone));
+//		}
+//
+//		return copyJournalAction;
+//	}
+	
 	private Action getNewJournalEntryAction() {
 		if (newJournalEntryAction == null) {
-			newJournalEntryAction = new AbstractAction("New Journal Entry") {
+			newJournalEntryAction = new AbstractAction("New Journal Entry") { //$NON-NLS-1$
 				private static final long serialVersionUID = 1L;
 
 				@Override
@@ -205,7 +228,12 @@ public class JournalPane extends JPanel {
 		if (!setting) {
 			datePicker.setDate(date);
 		}
-		
+
+		for(Object component: entriesPanel.getComponents()) {
+			if(component instanceof JournalEntryPanel) {
+				((JournalEntryPanel)component).release();
+			}
+		}
 		entriesPanel.removeAll();
 		
 		JournalEntry[] entries= engine.getJournalModel().getEntries(day);

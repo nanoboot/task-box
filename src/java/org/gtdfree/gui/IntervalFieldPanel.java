@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -55,11 +55,11 @@ public class IntervalFieldPanel extends JPanel implements JournalEntryListener {
 		
 	}
 	
-	public void addInterval(Interval i) {
+	public IntervalField addInterval(Interval i) {
 		
 		entry.addInterval(i);
 		
-		IntervalField f= new IntervalField(this,entry,entry.getIntervalCount()-1);
+		IntervalField f= new IntervalField(this,entry,i);
 		
 		fields.add(f);
 		
@@ -70,6 +70,8 @@ public class IntervalFieldPanel extends JPanel implements JournalEntryListener {
 		if (getParent()!=null && getParent().getParent()!=null) {
 			getParent().getParent().validate();
 		}
+		
+		return f;
 	}
 	
 	public void removeField(IntervalField f) {
@@ -108,13 +110,13 @@ public class IntervalFieldPanel extends JPanel implements JournalEntryListener {
 			
 			if (ii==null || ii.length==0) {
 			
-				int i= JournalTools.minutesOfDay();
-				addInterval(new Interval(i,i));
+				int i= JournalTools.secondsOfDay();
+				addInterval(new Interval(this.entry, i, i));
 			
 			} else {
 				
 				for (int i = 0; i < ii.length; i++) {
-					IntervalField f= new IntervalField(this,entry,i);
+					IntervalField f= new IntervalField(this,entry,entry.getInterval(i));
 					fields.add(f);
 					add(f, new GridBagConstraints(0,i,1,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
 				}

@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -53,5 +53,9 @@ public final class JournalTools {
 		GregorianCalendar g= new GregorianCalendar();
 		return g.get(Calendar.HOUR_OF_DAY)*60+g.get(Calendar.MINUTE);
 	}
-	
+
+	public static int secondsOfDay() {
+		GregorianCalendar g= new GregorianCalendar();
+		return (g.get(Calendar.HOUR_OF_DAY)*60+g.get(Calendar.MINUTE))*60 + g.get(Calendar.SECOND);
+	}
 }

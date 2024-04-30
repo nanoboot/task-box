@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -67,7 +67,7 @@ public class TimeField extends JPanel {
 		f.setVisible(true);
 	}
 	
-	public static final String PROPERTY_TIME_OF_DAY = "timeOfDay";
+	public static final String PROPERTY_TIME_OF_DAY = "timeOfDay"; //$NON-NLS-1$
 	private int timeOfDay=-1;
 	private JButton hourButton;
 	private Border buttonBorder;
@@ -167,7 +167,7 @@ public class TimeField extends JPanel {
 		
 		setLayout(new GridBagLayout());
 		add(hourButton,new GridBagConstraints(0,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
-		add(new JLabel(":"),new GridBagConstraints(1,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
+		add(new JLabel(":"),new GridBagConstraints(1,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0)); //$NON-NLS-1$
 		add(minuteButton,new GridBagConstraints(2,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
 		
 		setTimeOfDay(0);

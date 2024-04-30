@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -20,14 +20,19 @@
 package org.gtdfree.gui;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
-import java.awt.event.InputEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
+import java.awt.print.PrinterException;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.text.MessageFormat;
+import java.util.Calendar;
+import java.util.Date;
 
 import javax.swing.AbstractAction;
 import javax.swing.JButton;
@@ -35,33 +40,39 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
-import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
+import javax.swing.JTable.PrintMode;
 import javax.swing.border.TitledBorder;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import org.gtdfree.ApplicationHelper;
 import org.gtdfree.GTDFreeEngine;
 import org.gtdfree.GlobalProperties;
+import org.gtdfree.Messages;
 import org.gtdfree.gui.ActionTable.CellAction;
 import org.gtdfree.model.Action;
+import org.gtdfree.model.ActionsCollection;
 import org.gtdfree.model.Folder;
 import org.gtdfree.model.FolderEvent;
 import org.gtdfree.model.FolderListener;
 import org.gtdfree.model.Action.Resolution;
+
+import de.wannawork.jcalendar.JCalendarComboBox;
 
 
 /**
  * @author ikesan
  *
  */
-public class InBasketPane extends JPanel {
+public class InBasketPane extends JPanel implements WorkflowPane {
 	
-	private static final long serialVersionUID = 3933752664249964846L;
+	private static final long serialVersionUID = 1L;
 
 	private GTDFreeEngine engine;
-	JTextArea ideaText;
+	InputTextArea ideaText;
 	private AbstractAction newNoteAction;
 	private ActionTable noteTable;
 	private Action selectedAction;
@@ -69,6 +80,8 @@ public class InBasketPane extends JPanel {
 	private AbstractAction delAction;
 	private AbstractAction clearAction;
 	private boolean setting=false;
+	private JCalendarComboBox datePicker;
+
 
 	private FolderListener noteListener= new FolderListener() {
 	
@@ -80,6 +93,7 @@ public class InBasketPane extends JPanel {
 			if (!setting && getSelectedAction()!=null && !getSelectedAction().getDescription().equals(ideaText.getText())) {
 				setting=true;
 				ideaText.setText(getSelectedAction().getDescription());
+				ideaText.clearUndoHistory();
 				setting=false;
 			}
 		}
@@ -100,6 +114,8 @@ public class InBasketPane extends JPanel {
 	private JSplitPane split;
 
 	private boolean adding;
+
+	private JButton clearDateButton;
 
 	
 	
@@ -125,18 +141,28 @@ public class InBasketPane extends JPanel {
 		}
 		this.selectedAction = selectedAction;
 		if (selectedAction==null) {
-			idLabel.setText(Messages.getString("ActionPanel.ID")+Messages.getString("ActionPanel.NA"));
+			setting=true;
+			idLabel.setText(Messages.getString("ActionPanel.ID")+Messages.getString("ActionPanel.NA")); //$NON-NLS-1$ //$NON-NLS-2$
 			ideaText.setText(ApplicationHelper.EMPTY_STRING);
+			ideaText.clearUndoHistory();
+			datePicker.setDate(null);
+			datePicker.setEnabled(false);
+			clearDateButton.setEnabled(false);
 			//getModifyAction().setEnabled(false);
 			getCloneNoteAction().setEnabled(false);
 			getDeleteAction().setEnabled(false);
 			getDoneNoteAction().setEnabled(true);
 			getNewNoteAction().setEnabled(false);
+			setting=false;
 		} else {
 			setting=true;
-			idLabel.setText(Messages.getString("ActionPanel.ID")+selectedAction.getId());
+			idLabel.setText(Messages.getString("ActionPanel.ID")+selectedAction.getId()); //$NON-NLS-1$
 			ideaText.setText(selectedAction.getDescription());
 			ideaText.setCaretPosition(0);
+			ideaText.clearUndoHistory();
+			datePicker.setDate(selectedAction.getRemind());
+			datePicker.setEnabled(true);
+			clearDateButton.setEnabled(true);
 			//getModifyAction().setEnabled(true);
 			getCloneNoteAction().setEnabled(true);
 			getDeleteAction().setEnabled(true);
@@ -147,7 +173,7 @@ public class InBasketPane extends JPanel {
 	}
 
 	public InBasketPane() {
-		initialize();
+		//initialize();
 	}
 
 	private void initialize() {
@@ -160,17 +186,14 @@ public class InBasketPane extends JPanel {
 		jp.setLayout(new GridBagLayout());
 		jp.setBorder(new TitledBorder(Messages.getString("InBasketPane.ActionTitle"))); //$NON-NLS-1$
 
-		idLabel = new JLabel(Messages.getString("ActionPanel.ID")+Messages.getString("ActionPanel.NA"));
-		jp.add(idLabel,new GridBagConstraints(0,0,1,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,4,0,4),0,0));
+		idLabel = new JLabel(Messages.getString("ActionPanel.ID")+Messages.getString("ActionPanel.NA")); //$NON-NLS-1$ //$NON-NLS-2$
+		jp.add(idLabel,new GridBagConstraints(0,0,2,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,4,0,4),0,0));
 		
 		JScrollPane jsp= new JScrollPane();
-		ideaText= new JTextArea();
-		ideaText.setLineWrap(true);
-		ideaText.setWrapStyleWord(true);
+		ideaText= new InputTextArea();
 		ideaText.setRows(3);
-		ideaText.setMargin(new Insets(2,4,2,4));
-		ideaText.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "Enter");
-		ideaText.getActionMap().put("Enter", new AbstractAction() {
+		ideaText.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "Enter"); //$NON-NLS-1$
+		ideaText.getActionMap().put("Enter", new AbstractAction() { //$NON-NLS-1$
 			private static final long serialVersionUID = 1348070910974195411L;
 
 			public void actionPerformed(ActionEvent e) {
@@ -179,15 +202,6 @@ public class InBasketPane extends JPanel {
 				} else {
 					getNewNoteAction().actionPerformed(e);
 				}
-			}
-		});
-		ideaText.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK), "NewLine");
-		ideaText.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.CTRL_DOWN_MASK), "NewLine");
-		ideaText.getActionMap().put("NewLine", new AbstractAction() {
-			private static final long serialVersionUID = 1L;
-
-			public void actionPerformed(ActionEvent e) {
-				ideaText.insert("\n", ideaText.getCaretPosition());
 			}
 		});
 		/*ideaText.setDragEnabled(true);
@@ -217,30 +231,95 @@ public class InBasketPane extends JPanel {
 		jsp.setViewportView(ideaText);
 		jsp.setMinimumSize(ideaText.getPreferredScrollableViewportSize());
 		jsp.setPreferredSize(ideaText.getPreferredScrollableViewportSize());
-		jp.add(jsp,new GridBagConstraints(0,1,1,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(0,4,0,4),0,0));
+		jp.add(jsp,new GridBagConstraints(0,1,2,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(0,4,0,4),0,0));
+		
+		JPanel pp= new JPanel();
+		pp.setLayout(new GridBagLayout());
+		
+		datePicker= new JCalendarComboBox() {
+			private static final long serialVersionUID = 1L;
+			Dimension d= null;
+			@Override
+			public Dimension getPreferredSize() {
+				if (d==null) {
+					Insets in= ApplicationHelper.getDefaultSlimButtonMargin();
+					d= new Dimension(super.getPreferredSize().width+6,super.getPreferredSize().height+in.top+in.bottom-4);
+				}
+				int w= super.getPreferredSize().width+6;
+				if (w>d.width) {
+					d= new Dimension(w,d.height);
+				}
+				return d;
+			}
+			@Override
+			public Dimension getMinimumSize() {
+				return getPreferredSize();
+			}
+		};
+		datePicker.setDateFormat(ApplicationHelper.defaultDateFormat);
+		Dimension d= new Dimension(datePicker.getPreferredSize().height,datePicker.getPreferredSize().height);
+		datePicker.setDate(null);
+		datePicker.setSpiningCalendarField(Calendar.DAY_OF_MONTH);
+		datePicker.addChangeListener(new ChangeListener() {
+		
+			@Override
+			public void stateChanged(ChangeEvent e) {
+				if (setting) {
+					return;
+				}
+				if (selectedAction!=null) {
+					selectedAction.setRemind(datePicker.getDate());
+				}
+			}
+		
+		});
+		pp.add(datePicker, new GridBagConstraints(0,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,0,0,2),0,0));
+		
+
+		clearDateButton= new JButton();
+		//clearDateButton.setMinimumSize(d);
+		//clearDateButton.setPreferredSize(d);
+		clearDateButton.setMargin(ApplicationHelper.getDefaultSlimButtonMargin());
+		clearDateButton.setToolTipText(Messages.getString("ActionPanel.Clear")); //$NON-NLS-1$
+		clearDateButton.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_clear));
+		clearDateButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				datePicker.setDate(null);
+			}
+		});
+		pp.add(clearDateButton, new GridBagConstraints(1,0,1,1,0,0,GridBagConstraints.WEST,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
+		jp.add(pp,new GridBagConstraints(0,2,1,1,0,0,GridBagConstraints.WEST,GridBagConstraints.BOTH,new Insets(2,4,0,4),0,0));
+
 		
 		JPanel jp1= new JPanel();
 		jp1.setLayout(new GridBagLayout());
+		
 		JButton b= new JButton();
 		b.setAction(getNewNoteAction());
+		b.setMargin(ApplicationHelper.getDefaultFatButtonMargin());
 		jp1.add(b,new GridBagConstraints(0,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
 
 		b= new JButton();
+		b.setMargin(ApplicationHelper.getDefaultFatButtonMargin());
 		b.setAction(getDoneNoteAction());
 		jp1.add(b,new GridBagConstraints(1,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
 
 		b= new JButton();
+		b.setMargin(ApplicationHelper.getDefaultFatButtonMargin());
 		b.setAction(getCloneNoteAction());
 		jp1.add(b,new GridBagConstraints(2,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
 
 		b= new JButton();
+		b.setMargin(ApplicationHelper.getDefaultFatButtonMargin());
 		b.setAction(getClearAction());
 		jp1.add(b,new GridBagConstraints(3,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
 				
 		b= new JButton();
+		b.setMargin(ApplicationHelper.getDefaultFatButtonMargin());
 		b.setAction(getDeleteAction());
 		jp1.add(b,new GridBagConstraints(4,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
-		jp.add(jp1,new GridBagConstraints(0,2,1,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(0,0,0,0),0,0));
+		jp.add(jp1,new GridBagConstraints(1,2,1,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(0,0,0,0),0,0));
 
 		//add(jp,new GridBagConstraints(0,0,1,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(4,4,4,4),0,0));
 
@@ -248,8 +327,9 @@ public class InBasketPane extends JPanel {
 		
 		noteTable= new ActionTable();
 		noteTable.setShowQueueColumn(false);
+		noteTable.setSingleSelectionMode(true);
 		noteTable.setCellAction(CellAction.DELETE);
-		noteTable.addPropertyChangeListener(ActionTable.SELECTED_ACTION_PROPERTY_NAME, new PropertyChangeListener() {
+		noteTable.addPropertyChangeListener(ActionTable.SELECTED_ACTIONS_PROPERTY_NAME, new PropertyChangeListener() {
 			public void propertyChange(PropertyChangeEvent evt) {
 				setSelectedAction(noteTable.getSelectedAction());
 			}
@@ -272,7 +352,7 @@ public class InBasketPane extends JPanel {
 	
 	private javax.swing.Action getDeleteAction() {
 		if (delAction == null) {
-			delAction = new AbstractAction(Messages.getString("delete"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_delete)) {
+			delAction = new AbstractAction(Messages.getString("ActionPanel.Delete"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_delete)) { //$NON-NLS-1$
 				private static final long serialVersionUID = 0L;
 
 				public void actionPerformed(ActionEvent e) {
@@ -281,7 +361,7 @@ public class InBasketPane extends JPanel {
 					}
 				}
 			};
-			delAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("delete.Tooltip"));
+			delAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("ActionPanel.Delete.desc")); //$NON-NLS-1$
 			delAction.setEnabled(false);
 			
 		}
@@ -296,9 +376,11 @@ public class InBasketPane extends JPanel {
 
 				public void actionPerformed(ActionEvent e) {
 					ideaText.setText(ApplicationHelper.EMPTY_STRING);
+					ideaText.clearUndoHistory();
+					ideaText.requestFocus();
 				}
 			};
-			clearAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("InBasketPane.Clear.Tooltip")); //$NON-NLS-1$
+			clearAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("InBasketPane.Clear.desc")); //$NON-NLS-1$
 			clearAction.setEnabled(true);
 			
 		}
@@ -322,10 +404,11 @@ public class InBasketPane extends JPanel {
 				public void actionPerformed(ActionEvent e) {
 					noteTable.getSelectionModel().clearSelection();
 					ideaText.setText(ApplicationHelper.EMPTY_STRING);
+					ideaText.clearUndoHistory();
 				}
 			
 			};
-			newNoteAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("InBasketPane.New.Tooltip")); //$NON-NLS-1$
+			newNoteAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("InBasketPane.New.desc")); //$NON-NLS-1$
 			
 		}
 
@@ -344,12 +427,13 @@ public class InBasketPane extends JPanel {
 					}
 					adding=true;
 					getEngine().getGTDModel().createAction(noteTable.getFolder(), ideaText.getText());
-					adding=false;
 					noteTable.getSelectionModel().clearSelection();
 					ideaText.setText(ApplicationHelper.EMPTY_STRING);
+					ideaText.clearUndoHistory();
+					adding=false;
 				}
 			};
-			doneNoteAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("InBasketPane.Add-Tooltip")); //$NON-NLS-1$
+			doneNoteAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("InBasketPane.Add.desc")); //$NON-NLS-1$
 		}
 
 		return doneNoteAction;
@@ -367,7 +451,7 @@ public class InBasketPane extends JPanel {
 				}
 			
 			};
-			cloneNoteAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("InBasketPane.Clone.Tooltip")); //$NON-NLS-1$
+			cloneNoteAction.putValue(AbstractAction.SHORT_DESCRIPTION, Messages.getString("InBasketPane.Clone.desc")); //$NON-NLS-1$
 			
 		}
 
@@ -379,6 +463,7 @@ public class InBasketPane extends JPanel {
 		Folder folder= engine.getGTDModel().getInBucketFolder();
 		noteTable.setEngine(engine);
 		noteTable.setFolder(folder);
+		ideaText.setEngine(engine);
 		
 		folder.addFolderListener(noteListener);
 		
@@ -389,14 +474,40 @@ public class InBasketPane extends JPanel {
 	}
 
 	public void store(GlobalProperties p) {
-		p.putProperty("inbasket.dividerLocation", split.getDividerLocation());
+		p.putProperty("inbasket.dividerLocation", split.getDividerLocation()); //$NON-NLS-1$
 	}
 
 	public void restore(GlobalProperties p) {
-		Integer i= p.getInteger("inbasket.dividerLocation");
+		Integer i= p.getInteger("inbasket.dividerLocation"); //$NON-NLS-1$
 		if (i!=null) {
 			split.setDividerLocation(i);
 		}
 	}
+	
+	@Override
+	public ActionsCollection getActionsInView() {
+		return new ActionsCollection(noteTable);
+	}
+	
+	public void printTable() throws PrinterException {
+		noteTable.print(PrintMode.FIT_WIDTH, new MessageFormat("GTD-Free Data - In-Bucket - "+ApplicationHelper.toISODateTimeString(new Date())), new MessageFormat("Page - {0}")); //$NON-NLS-1$ //$NON-NLS-2$
+	}
+
+	@Override
+	public void initialize(GTDFreeEngine engine) {
+		initialize();
+		setEngine(engine);
+		restore(engine.getGlobalProperties());
+	}
+	@Override
+	public boolean isInitialized() {
+		return engine!=null;
+	}
+	
+	@Override
+	public Folder getSelectedFolder() {
+		return noteTable.getFolder();
+	}
+
 
 }

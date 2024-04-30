@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -19,6 +19,12 @@
 
 package org.gtdfree;
 
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.awt.Dialog.ModalityType;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -27,98 +33,83 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Properties;
 
 import javax.swing.ActionMap;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JProgressBar;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.FactoryConfigurationError;
 import javax.xml.stream.XMLStreamException;
 
+import org.apache.log4j.Logger;
+import org.gtdfree.addons.DefaultXMLExportAddOn;
+import org.gtdfree.addons.ExportAddOn;
+import org.gtdfree.addons.HTMLExportAddOn;
+import org.gtdfree.addons.PDFExportAddOn;
+import org.gtdfree.addons.PlainTextExportAddOn;
+import org.gtdfree.gui.DatabaseSelectionDialog;
+import org.gtdfree.gui.GTDFreePane;
 import org.gtdfree.gui.StateMachine;
+import org.gtdfree.gui.WorkflowPane;
 import org.gtdfree.journal.JournalModel;
-import org.gtdfree.model.ActionEvent;
-import org.gtdfree.model.Folder;
-import org.gtdfree.model.FolderEvent;
+import org.gtdfree.model.GTDDataODB;
+import org.gtdfree.model.GTDDataXML;
 import org.gtdfree.model.GTDModel;
-import org.gtdfree.model.GTDModelListener;
-import org.gtdfree.model.GTDModel.DataHeader;
+import org.w3c.dom.Document;
+import org.w3c.dom.NodeList;
 
 
 public class GTDFreeEngine {
 	
-	class SaveThread extends Thread implements GTDModelListener {
-		boolean destroyed= false;
-		public SaveThread() {
+	static public class VersionInfo {
+		public String version;
+		public String type;
+		public String notes;
+		
+		/**
+		 * @param version
+		 * @param type
+		 * @param notes
+		 */
+		public VersionInfo(String version, String type, String notes) {
+			super();
+			this.version = version;
+			this.type = type;
+			this.notes = notes;
 		}
-		@Override
-		public void run() {
-			while (!destroyed) {
-				if (save) {
-					try {
-						save=false;
-						save();
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-				}
-				synchronized (this) {
-					try {
-						wait(60000);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-				}
+		
+		public VersionInfo(Properties config) {
+			this.version = config.getProperty("build.version"); //$NON-NLS-1$
+			this.type = config.getProperty("build.type"); //$NON-NLS-1$
+		}
+		
+		public boolean isLaterThen(VersionInfo vinfo) {
+			 return version.compareTo(vinfo.version)<0;
+		}
+		
+		public String toFullVersionString() {
+			StringBuilder sb= new StringBuilder(16);
+			sb.append(version);
+			if (type!=null && type.length()>0) {
+				sb.append('-');
+				sb.append(type);
 			}
-		}
-		public void elementAdded(FolderEvent a) {
-			if (!a.isRecycled()) {
-				notifySave();
-			}
-		}
-		public void elementModified(ActionEvent a) {
-			if (!a.isRecycled()) {
-				notifySave();
-			}
-		}
-		public void elementRemoved(FolderEvent a) {
-			if (!a.isRecycled()) {
-				notifySave();
-			}
-		}
-		public void folderAdded(Folder folder) {
-			notifySave();
-		}
-		public void folderModified(FolderEvent folder) {
-			if (!folder.isRecycled()) {
-				notifySave();
-			}
-		}
-		public void folderRemoved(Folder folder) {
-			notifySave();
-		}
-		public void orderChanged(Folder f) {
-			notifySave();
-		}
-		public synchronized void notifySave() {
-			//Thread.dumpStack();
-			save=true;
-			notify();
-		}
-		public synchronized void stopSave() {
-			destroyed=true;
-			notify();
+			return sb.toString();
 		}
 	}
+
+	
 	
 	volatile private GTDModel gtdModel;
-	private SaveThread saveThread;
-	private volatile boolean save= false;
-	private boolean autoSave=true;
-	private int i=0;
 	private Properties configuration;
 	private GlobalProperties globalProperties;
 
@@ -126,6 +117,11 @@ public class GTDFreeEngine {
 	private StateMachine stateMachine;
 	private ActionMap actionMap;
 	private boolean aborting= false;
+	private List<ExportAddOn> exportAddOns;
+	private GTDFreePane activePane;
+	private PropertyChangeSupport support= new PropertyChangeSupport(this);
+	private JDialog upgradeImportDialog;
+	private Logger logger= Logger.getLogger(GTDFreeEngine.class);
 	
 	public GTDFreeEngine() throws FileNotFoundException, XMLStreamException, FactoryConfigurationError, MalformedURLException {
 	}
@@ -139,143 +135,131 @@ public class GTDFreeEngine {
 	
 	public GTDModel getGTDModel() {
 		if (gtdModel == null) {
-			gtdModel = new GTDModel();
 			
-			System.out.println("Using "+getDataFile().getAbsolutePath());
-
-			if (getDataFile().exists()) {
+			Object db= getGlobalProperties().getProperty(GlobalProperties.DATABASE);
+			
+			boolean doImport=false;
+			
+			if (db==null 
+					|| (!GlobalProperties.DATABASE_VALUE_ODB.equalsIgnoreCase(db.toString()) 
+							&& !GlobalProperties.DATABASE_VALUE_XML.equalsIgnoreCase(db.toString()))) {
+				
+				DatabaseSelectionDialog d= new DatabaseSelectionDialog(null);
+				d.setVisible(true);
+				
+				if (!d.isSuccess()) {
+					logger.info("Database selection canceled, closing."); //$NON-NLS-1$
+					try {
+						close(true,false);
+					} catch (Exception e) {
+						logger.error("Internal error.",e); //$NON-NLS-1$
+					}
+					System.exit(0);
+				}
+				
+				db= d.getDatabase();
+				doImport= d.isUpgrade();
+				
+				getGlobalProperties().putProperty(GlobalProperties.DATABASE, db);
+			}
+			
+			if (GlobalProperties.DATABASE_VALUE_XML.equalsIgnoreCase(db.toString())) {
+				GTDDataXML xml= new GTDDataXML(getDataFolder(),getGlobalProperties());
 				try {
-					gtdModel.load(getDataFile());
-				} catch (Exception e) {
-					e.printStackTrace();
-					
-					DataHeader[] dh= findBackupFiles();
-					
-					handleFailedLoad(gtdModel, dh, 0, e);
-					
+					gtdModel= xml.restore();
+				} catch (IOException e) {
+					Logger.getLogger(this.getClass()).fatal("Initialization error, closing.", e); //$NON-NLS-1$
+					try {
+						close(true,false);
+					} catch (Exception ex) {
+						Logger.getLogger(this.getClass()).error("Closing error.", ex); //$NON-NLS-1$
+					}
+					System.exit(0);
 				}
 			} else {
-				DataHeader[] dh= findBackupFiles();
-				if (dh!=null && dh.length>0) {
-					handleFailedLoad(gtdModel, dh, 0, new FileNotFoundException("Missing main data file: '"+getDataFile().getAbsolutePath()+"'."));
+				GTDDataODB odb= new GTDDataODB(getDataFolder(),getGlobalProperties());
+				try {
+					gtdModel= odb.restore();
+				} catch (IOException e) {
+					Logger.getLogger(this.getClass()).fatal("Initialization error.", e); //$NON-NLS-1$
+					try {
+						close(true,false);
+					} catch (Exception ex) {
+						Logger.getLogger(this.getClass()).error("Closing error.", ex); //$NON-NLS-1$
+					}
+					System.exit(0);
+				}
+				
+				if (doImport) {
+					final GTDDataXML xml= new GTDDataXML(getDataFolder(),getGlobalProperties());
+					
+					new Thread("UpgradeImportThread") { //$NON-NLS-1$
+						@Override
+						public void run() {
+							try {
+								synchronized (GTDFreeEngine.this) {
+									GTDModel gtdXml= xml.restore();
+									gtdModel.importData(gtdXml);
+								}
+								getUpgradeImportDialog(null).dispose();
+							} catch (IOException e) {
+								getUpgradeImportDialog(null).dispose();
+								Logger.getLogger(this.getClass()).error("I/O error.", e); //$NON-NLS-1$
+								JOptionPane.showMessageDialog(
+										null, 
+										Messages.getString("GTDFreeEngine.XMLImport.1")+ //$NON-NLS-1$
+										(e.getCause()!=null ? e.getCause().toString() : e.toString())+
+										Messages.getString("GTDFreeEngine.XMLImport.2"), Messages.getString("GTDFreeEngine.XMLImport.Title"), JOptionPane.ERROR_MESSAGE); //$NON-NLS-1$ //$NON-NLS-2$
+							}
+						};
+					}.start();
+					getUpgradeImportDialog(xml.getDataFile().toString()).setVisible(true);
+					
 				}
 			}
+			
+			
 			setAutoSave(getGlobalProperties().getBoolean(GlobalProperties.AUTO_SAVE , true));
 		}
 
 		return gtdModel;
 	}
 	
-	private boolean handleFailedLoad(GTDModel m, DataHeader[] dh, int i, Exception e) {
-		if (dh==null || dh.length<=i) {
-			// handle when there is no backup file
-			
-			int option= JOptionPane.showConfirmDialog(
-					null, 
-					"Your data was NOT properly loaded into the GTD-Free because of file loading error: \n\""+
-					e.toString().replace(". ", ".\n")+
-					"\"\n\nDo you want to abort the application with no changes made to data files, make backup of data folder and manually corect problem?" +
-					"\n\n'No' will continue starting the application with partially loaded data." +
-					"\n\nTip: your data files are stored in the folder: '"+ApplicationHelper.getDataFolder().getAbsolutePath()+
-					"'.\nMain data file '"+
-					getDataFile().getName()+
-					"' has ten backup copies, they are named as" +
-					"\ngtd-free-data.backupN.xml where 'N' stands for numbers from 0 to 9." ,
-					"GTD-Free - Error Loading Data File", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
-			if (option== JOptionPane.YES_OPTION) {
-				autoSave=false;
-				if (saveThread!=null) {
-					saveThread.stopSave();
-				}
-				aborting=true;
-				System.exit(0);
-				return false;
-			} 
-
-			return true;
-
-		}
-			
-		int option= JOptionPane.showConfirmDialog(
-				null, 
-				"Your data was NOT properly loaded into the GTD-Free because of file loading error: \n\""+
-				e.toString().replace(". ", ".\n")+
-				"\"\n\nDo you want to try to load backup file '" +
-				dh[i].getFile().getAbsolutePath() +
-				"',\nsaved on " + ApplicationHelper.toISODateTimeString(dh[i].getModified()) + "?" +
-				"\n\n'No' will continue starting the application with partially loaded data." +
-				"\n\n'Cancel' will abort the application with no changes made to data files. You will have chance" +
-				"\nto make backup of data folder and manually corect problem." +
-				"\n\nTip: your data files are stored in the folder: '"+ApplicationHelper.getDataFolder().getAbsolutePath()+
-				"'.\nMain data file '"+
-				getDataFile().getName()+
-				"' has ten backup copies, they are named as" +
-				"\ngtd-free-data.backupN.xml where 'N' stands for numbers from 0 to 9." ,
-				"GTD-Free - Error Loading Data File", JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.ERROR_MESSAGE);
-		if (option==JOptionPane.YES_OPTION) {
-			try {
-				System.out.println("Loading "+dh[i].getFile().getAbsolutePath());
-				gtdModel.load(dh[i].getFile());
-				return true;
-			} catch (Exception ex) {
-				ex.printStackTrace();
-				return handleFailedLoad(m, dh, ++i, ex);
-			}	
-		} else if (option == JOptionPane.NO_OPTION) {
-			return true;
-		} else {
-			//if (option== JOptionPane.CANCEL_OPTION) {
-			autoSave=false;
-			if (saveThread!=null) {
-				saveThread.stopSave();
-			}
-			aborting=true;
-			System.exit(0);
-			return false;
-		} 
-		
-	}
 	
-	private DataHeader[] findBackupFiles() {
-		List<DataHeader> l= new ArrayList<DataHeader>(10);
-		
-		for (int i=0; i<10; i++) {
+	private JDialog getUpgradeImportDialog(String file) {
+		if (upgradeImportDialog == null) {
+			upgradeImportDialog = new JDialog();
+			upgradeImportDialog.setTitle(Messages.getString("GTDFreeEngine.Upgrade.title")); //$NON-NLS-1$
 			
-			File f= ApplicationHelper.createBackupDataFile(i);
-			if (f.exists() && f.length()>0) {
-				try {
-					DataHeader dh= new DataHeader(f);
-					l.add(dh);
-				} catch (Exception e) {
-					e.printStackTrace();
-				} 
-			}
+			JPanel p= new JPanel();
+			p.setLayout(new GridBagLayout());
+			p.add(new JLabel(Messages.getString("GTDFreeEngine.Upgrade.1")+file), new GridBagConstraints(0,0,1,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL, new Insets(11,11,4,11),0,0)); //$NON-NLS-1$
+			p.add(new JLabel(Messages.getString("GTDFreeEngine.Upgrade.2")), new GridBagConstraints(0,1,1,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL, new Insets(4,11,4,11),0,0)); //$NON-NLS-1$
+
+			JProgressBar pb= new JProgressBar();
+			pb.setIndeterminate(true);
+			p.add(pb, new GridBagConstraints(0,2,1,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL, new Insets(4,11,11,11),0,0));
 			
-		}
-		
-		Collections.sort(l, new Comparator<DataHeader>() {
-		
-			@Override
-			public int compare(DataHeader o1, DataHeader o2) {
-				if (o1.getModified()==null || o2.getModified()==null) {
-					return 0;
+			upgradeImportDialog.setContentPane(p);
+			upgradeImportDialog.pack();
+			upgradeImportDialog.setLocationRelativeTo(null);
+			upgradeImportDialog.setModalityType(ModalityType.APPLICATION_MODAL);
+			upgradeImportDialog.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+			upgradeImportDialog.setResizable(false);
+			/*upgradeImportDialog.addWindowListener(new WindowAdapter() {
+				@Override
+				public void windowClosing(WindowEvent e) {
+					
 				}
-				return (int)(o2.getModified().getTime()-o1.getModified().getTime());
-			}
-		});
-		
-		for (DataHeader dataHeader : l) {
-			System.out.println(dataHeader);
+			});*/
 		}
-		
-		return l.toArray(new DataHeader[l.size()]);
-		
-		
+
+		return upgradeImportDialog;
 	}
-	
+
 	public JournalModel getJournalModel() {
 		if (journalModel == null) {
-			journalModel = new JournalModel();
+			journalModel = new JournalModel(getDataFolder(), getGTDModel());
 			/*if (file==null) {
 				file=ApplicationHelper.getDefaultFile();
 			}
@@ -304,37 +288,27 @@ public class GTDFreeEngine {
 			return;
 		}
 		
-		File backup = ApplicationHelper.createBackupDataFile(i++%10);
-		if (backup.exists() && !backup.delete()) {
-			throw new IOException("Failed to remove backup file '"+backup.getAbsolutePath()+"'.");
-		}
-		if (getDataFile().exists() && !getDataFile().renameTo(backup)) {
-			throw new IOException("Failed to make backup copy file '"+backup.getAbsolutePath()+"'.");
-		}
-		gtdModel.store(getDataFile());
-		System.out.println("Saved to "+getDataFile().getAbsolutePath());
+		gtdModel.getDataRepository().flush();
+		
 	}
 
 	public void emergencySave() {
-		File save = new File(ApplicationHelper.getDataFolder(),ApplicationHelper.SHUTDOWN_EMERGENCY_BACKUP_DATA_FILE_NAME);
+		if (gtdModel==null) {
+			return;
+		}
+		File save = ApplicationHelper.getShutdownBackupXMLFile();
 		if (save.exists() && !save.delete()) {
-			new IOException("Failed to remove emergency backup file '"+save.getAbsolutePath()+"'.").toString();
+			new IOException(Messages.getString("GTDFreeEngine.BackupRemoveFailed.1")+save.getAbsolutePath()+Messages.getString("GTDFreeEngine.BackupRemoveFailed.2")).toString(); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 		try {
-			gtdModel.store(save);
-			System.out.println("Shutdown emergency backup saved to "+save.getAbsolutePath());
+			gtdModel.exportXML(save);
+			
+			logger.info(Messages.getString("GTDFreeEngine.BackupSaved")+save.getAbsolutePath()); //$NON-NLS-1$
 		} catch (Exception e) {
-			System.out.println("Failed to make shutdown emergency backup to "+save.getAbsolutePath());
-			System.out.println(e.toString());
+			logger.error(Messages.getString("GTDFreeEngine.BackupFailed")+save.getAbsolutePath(),e); //$NON-NLS-1$
 		}
 	}
 	
-	/**
-	 * @return the file
-	 */
-	public File getDataFile() {
-		return ApplicationHelper.getDataFile();
-	}
 	/**
 	 * @return the file
 	 */
@@ -346,30 +320,18 @@ public class GTDFreeEngine {
 	 * @return the autoSave
 	 */
 	public boolean isAutoSave() {
-		return autoSave;
+		if (gtdModel!=null && gtdModel.getDataRepository() instanceof GTDDataXML) {
+			return ((GTDDataXML)gtdModel.getDataRepository()).isAutoSave();
+		}
+		return true;
 	}
 
 	/**
 	 * @param autoSave the autoSave to set
 	 */
 	public void setAutoSave(boolean autoSave) {
-		this.autoSave = autoSave;
-		if (autoSave) {
-			if (saveThread!=null) {
-				saveThread.stopSave();
-				getGTDModel().removeGTDModelListener(saveThread);
-			}
-			saveThread=new SaveThread();
-			saveThread.start();
-			getGTDModel().addGTDModelListener(saveThread);
-		} else {
-			if (saveThread!=null) {
-				saveThread.stopSave();
-			} else {
-				saveThread=new SaveThread();
-				saveThread.stopSave();
-				getGTDModel().addGTDModelListener(saveThread);
-			}
+		if (gtdModel!=null && gtdModel.getDataRepository() instanceof GTDDataXML) {
+			((GTDDataXML)gtdModel.getDataRepository()).setAutoSave(autoSave);
 		}
 	}
 	
@@ -387,7 +349,7 @@ public class GTDFreeEngine {
 					globalProperties.load(r);
 					
 				} catch (IOException e) {
-					e.printStackTrace();
+					Logger.getLogger(this.getClass()).error("Initialization error.", e); //$NON-NLS-1$
 				} finally {
 					try {
 						if (r!=null) {
@@ -410,38 +372,29 @@ public class GTDFreeEngine {
 	 * @throws XMLStreamException
 	 * @throws FactoryConfigurationError
 	 */
-	public boolean close(final boolean terminal) throws IOException, XMLStreamException, FactoryConfigurationError {
+	public boolean close(final boolean terminal, boolean emergencySave) throws IOException, XMLStreamException, FactoryConfigurationError {
 		
 		if (aborting) {
 			return true;
 		}
+
+		if (emergencySave || getGlobalProperties().getBoolean(GlobalProperties.SHUTDOWN_BACKUP_XML, true)) {
+			emergencySave();
+		}
 		
-		if (isAutoSave()) {
-			setAutoSave(false);
-			if (isSaveTriggered()) {
-				save();
-			}
-		} else if (isSaveTriggered()) {
-			
-			if (terminal) {
-				emergencySave();
-			} else {
-			
-				int option = JOptionPane.showConfirmDialog(
-								null, 
-								"Do you want to save changes before closing?\nChanges will permamantly lost if \"No\" is pressed.", 
-								"GTD-Free Closing!", 
-								JOptionPane.YES_NO_CANCEL_OPTION, 
-								JOptionPane.WARNING_MESSAGE);
-				
-				if (option == JOptionPane.OK_OPTION) {
-					setAutoSave(false);
-					save();
-				} else if (option == JOptionPane.CANCEL_OPTION) {
+		if (gtdModel!=null) {
+			try {
+				boolean close= gtdModel.getDataRepository().close(terminal);
+				if (!close && !terminal) {
 					return false;
 				}
+			} catch (Exception e) {
+				Logger.getLogger(this.getClass()).error("Close error.", e); //$NON-NLS-1$
 			}
 		}
+
+		aborting=true;
+		firePropertyChange("aborting", true, false); //$NON-NLS-1$
 		
 		File f= new File(getDataFolder(),ApplicationHelper.OPTIONS_FILE_NAME);
 		BufferedWriter w=null;
@@ -449,7 +402,7 @@ public class GTDFreeEngine {
 			w= new BufferedWriter(new FileWriter(f));
 			globalProperties.store(w);	
 		} catch (IOException e) {
-			e.printStackTrace();
+			Logger.getLogger(this.getClass()).error("Close error.", e); //$NON-NLS-1$
 		} finally {
 			try {
 				if (w!=null) {
@@ -462,10 +415,6 @@ public class GTDFreeEngine {
 		
 		return true;
 		
-	}
-
-	private boolean isSaveTriggered() {
-		return save;
 	}
 
 	public StateMachine getStateMachine() {
@@ -485,6 +434,101 @@ public class GTDFreeEngine {
 	
 	public boolean isAborting() {
 		return aborting;
+	}
+	
+	public ExportAddOn[] getExportAddOns() {
+		if (exportAddOns==null) {
+			exportAddOns= new ArrayList<ExportAddOn>(10);
+			exportAddOns.add(new DefaultXMLExportAddOn());
+			exportAddOns.add(new PDFExportAddOn());
+			exportAddOns.add(new HTMLExportAddOn());
+			exportAddOns.add(new PlainTextExportAddOn());
+		}
+		return exportAddOns.toArray(new ExportAddOn[exportAddOns.size()]);
+	}
+
+	public void setActivePane(GTDFreePane c) {
+		if (c == activePane) {
+			return;
+		}
+		GTDFreePane old= activePane;
+		activePane= c;
+		firePropertyChange("activePane",old,activePane); //$NON-NLS-1$
+	}
+
+	private void firePropertyChange(String name, Object old,
+			Object val) {
+		support.firePropertyChange(name, old, val);
+	}
+	
+	public GTDFreePane getActivePane() {
+		return activePane;
+	}
+	
+	public WorkflowPane getActiveWorkflowPane() {
+		if (activePane instanceof WorkflowPane) {
+			return (WorkflowPane) activePane;
+		}
+		return null;
+	}
+	
+	public void addPropertyChangeListener(String name, PropertyChangeListener l) {
+		support.addPropertyChangeListener(name, l);
+	}
+	
+	public void removePropertyChangeListener(String name, PropertyChangeListener l) {
+		support.removePropertyChangeListener(name, l);
+	}
+	
+	public VersionInfo[] checkForNewVersions(VersionInfo current) throws IOException {
+		
+		List<VersionInfo> l= new ArrayList<VersionInfo>(2);
+		URI uri=null;
+		try {
+			uri = new URI(getConfiguration().getProperty("version.url", "http://gtd-free.sourceforge.net")); //$NON-NLS-1$ //$NON-NLS-2$
+		} catch (Exception e1) {
+			Logger.getLogger(this.getClass()).error("URL load failed.", e1); //$NON-NLS-1$
+		}
+		if (uri!=null) {
+			DocumentBuilder db;
+			try {
+				
+				db = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+				Document doc= db.parse(uri.toString());
+
+				VersionInfo[] inf= new VersionInfo[2];
+				
+				NodeList verL= doc.getElementsByTagName("version"); //$NON-NLS-1$
+				NodeList typL= doc.getElementsByTagName("type"); //$NON-NLS-1$
+				NodeList notL= doc.getElementsByTagName("notes"); //$NON-NLS-1$
+				
+				inf[0]= new VersionInfo(
+						verL.item(0).getTextContent(),
+						typL.item(0).getTextContent(),
+						notL.item(0).getTextContent());
+				
+				inf[1]= new VersionInfo(
+						verL.item(1).getTextContent(),
+						typL.item(1).getTextContent(),
+						notL.item(1).getTextContent());
+
+				logger.debug("Remote versions: "+inf[0].toFullVersionString()+", "+inf[1].toFullVersionString()+"."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				
+				if (current.isLaterThen(inf[0])) {
+					l.add(inf[0]);
+				}
+				if (current.isLaterThen(inf[1])) {
+					l.add(inf[1]);
+				}
+				
+				return l.toArray(new VersionInfo[l.size()]);
+
+			} catch (Exception e) {
+				logger.error("Internal error.",e); //$NON-NLS-1$
+			}
+		}
+		
+		return new VersionInfo[0];
 	}
 
 }

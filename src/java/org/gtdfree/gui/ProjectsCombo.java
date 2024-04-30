@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -23,6 +23,10 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.Arrays;
@@ -35,11 +39,11 @@ import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JList;
 import javax.swing.JTextField;
-import javax.swing.event.ListDataEvent;
-import javax.swing.event.ListDataListener;
-import javax.swing.plaf.ComboBoxUI;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 
 import org.gtdfree.ApplicationHelper;
+import org.gtdfree.Messages;
 import org.gtdfree.model.Folder;
 import org.gtdfree.model.FolderEvent;
 import org.gtdfree.model.GTDModel;
@@ -64,12 +68,25 @@ public class ProjectsCombo extends JComboBox {
 				@Override
 				public void keyTyped(KeyEvent e) {
 					if (e.getKeyChar()==KeyEvent.VK_ESCAPE) {
-						setItem(item);
+						cancelEditing();
 					}
 				}
 			
 			});
+			addFocusListener(new FocusListener() {
+			
+				@Override
+				public void focusLost(FocusEvent e) {
+					projectEditor.cancelEditing();
+				}
+			
+				@Override
+				public void focusGained(FocusEvent e) {
+					// 
+				}
+			});
 			setMargin(new Insets(0,0,0,0));
+			//setBorder(null);
 		}
 
 		/* (non-Javadoc)
@@ -114,61 +131,111 @@ public class ProjectsCombo extends JComboBox {
 			}
 		}
 		
+		private void cancelEditing() {
+			hidePopup();
+			setItem(item);
+			ProjectsCombo.this.firePropertyChange(CANCELED_PROPERTY_NAME, false, true); //$NON-NLS-1$
+		}
+		
+	}
+	
+	class ProjectsComboBoxModel extends DefaultComboBoxModel {
+		
+		private static final long serialVersionUID = 1L;
+		private boolean reloading=false;
+		
+		@Override
+		public void setSelectedItem(Object sel) {
+			if (sel instanceof String && sel!=NONE ) {
+				sel= gtdModel.createFolder((String)sel, FolderType.PROJECT);
+				reload();
+			}
+			super.setSelectedItem(sel);
+		}
+		
+		@Override
+		protected void fireContentsChanged(Object source, int index0, int index1) {
+			if (reloading) return;
+			super.fireContentsChanged(source, index0, index1);
+		}
+		@Override
+		protected void fireIntervalAdded(Object source, int index0, int index1) {
+			if (reloading) return;
+			super.fireIntervalAdded(source, index0, index1);
+		}
+		@Override
+		protected void fireIntervalRemoved(Object source, int index0, int index1) {
+			if (reloading) return;
+			super.fireIntervalRemoved(source, index0, index1);
+		}
+		
+		private void reload() {
+			reloading=true;
+			
+			Object selected= getSelectedItem();
+			
+			comboModel.removeAllElements();
+			
+			comboModel.addElement(NONE);
+			
+			if (gtdModel==null) {
+				return;
+			}
+			
+			Project[] p= gtdModel.toProjectsArray();
+			
+			Arrays.sort(p, new Comparator<Project>() {
+			
+				public int compare(Project o1, Project o2) {
+					return o1.getName().compareTo(o2.getName());
+				}
+			
+			});
+
+			boolean contains=false;
+			for (int i = 0; i < p.length; i++) {
+				if (showClosedFolders || !p[i].isClosed()) {
+					comboModel.addElement(p[i]);
+					contains= contains || p[i].equals(selected); 
+				}
+			}
+			
+			if (contains) {
+				setSelectedItem(selected);
+			}
+			
+			reloading=false;
+			
+			fireIntervalAdded(this, 0, getSize());
+			
+			if (!contains) {
+				setSelectedProject(null);
+			}
+		}
 	}
 	
 	private static final long serialVersionUID = 1L;
 	//private static final String NEW= "<New>";
-	private static final String NONE= "<None>";
+	private static final String NONE= Messages.getString("ProjectsCombo.None"); //$NON-NLS-1$
 	
-	public static final String SELECTED_PROJECT_PROPERTY_NAME = "selectedProject";
+	public static final String CANCELED_PROPERTY_NAME= "canceled"; //$NON-NLS-1$
+	public static final String SELECTED_PROJECT_PROPERTY_NAME = "selectedProject"; //$NON-NLS-1$
 	
 	private GTDModel gtdModel;
-	private DefaultComboBoxModel comboModel;
-	private Project selectedProject;
-	private boolean reloading=false;
-		
+	private ProjectsComboBoxModel comboModel;
+	private Object last;
+	private ProjectEditor projectEditor;
+	private boolean showClosedFolders=false;
+			
 	public ProjectsCombo() {
 		initialize();
 	}
 	
-	@Override
-	public void setUI(ComboBoxUI ui) {
-		super.setUI(ui);
-	}
-
 	private void initialize() {
 		
 		setFont(getFont().deriveFont(Font.ITALIC));
 		
-		comboModel= new DefaultComboBoxModel();
-		
-		comboModel.addListDataListener(new ListDataListener() {
-		
-			public void intervalRemoved(ListDataEvent e) {
-				//
-		
-			}
-		
-			public void intervalAdded(ListDataEvent e) {
-				//
-		
-			}
-		
-			public void contentsChanged(ListDataEvent e) {
-				if (comboModel.getSelectedItem() instanceof Project) {
-					setSelectedProject((Project)comboModel.getSelectedItem());
-				} else {
-					if (comboModel.getSelectedItem()==NONE || comboModel.getSelectedItem()==null) {
-						setSelectedProject(null);
-					} else {
-						Project p= (Project)gtdModel.createFolder(comboModel.getSelectedItem().toString(), FolderType.PROJECT);
-						reload();
-						setSelectedProject(p);
-					}
-				}
-			}
-		
-		});
+		comboModel= new ProjectsComboBoxModel();
 		
 		setModel(comboModel);
 		
@@ -186,59 +253,47 @@ public class ProjectsCombo extends JComboBox {
 		
 		});
 		
-		setEditor(new ProjectEditor());
+		setEditor(projectEditor= new ProjectEditor());
 		
 		setEditable(true);
+		setBorder(null);
+		
+		addItemListener(new ItemListener() {
+		
+			@Override
+			public void itemStateChanged(ItemEvent e) {
+				fireProjectChanged();
+			}
+		});
+		
+		addPopupMenuListener(new PopupMenuListener() {
+		
+			@Override
+			public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+				//
+			}
+		
+			@Override
+			public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+				//
+			}
+		
+			@Override
+			public void popupMenuCanceled(PopupMenuEvent e) {
+				projectEditor.cancelEditing();
+			}
+		});
 	}
 	
 	@Override
 	public void addNotify() {
 		super.addNotify();
-		firePropertyChange("preferedSize", null, getPreferredSize());
+		firePropertyChange("preferedSize", null, getPreferredSize()); //$NON-NLS-1$
 	}
 	
-	private void reload() {
-		reloading=true;
-		
-		Project selected= getSelectedProject();
-		
-		comboModel.removeAllElements();
-		
-		comboModel.addElement(NONE);
-		
-		if (gtdModel==null) {
-			return;
-		}
-		
-		//comboModel.addElement(NEW);
-		
-		Project[] p= gtdModel.projects();
-		
-		Arrays.sort(p, new Comparator<Project>() {
-		
-			public int compare(Project o1, Project o2) {
-				return o1.getName().compareTo(o2.getName());
-			}
-		
-		});
-
-		boolean contains=false;
-		for (int i = 0; i < p.length; i++) {
-			contains= contains || p[i].equals(selected); 
-			if (!p[i].isClosed()) {
-				comboModel.addElement(p[i]);
-			}
-		}
-		
-		if (contains) {
-			setSelectedProject(selected);
-		}
-		
-		reloading=false;
-
-		if (!contains) {
-			setSelectedProject(null);
-		}
+	
+	public boolean isInitialized() {
+		return comboModel.getSelectedItem()!=null;
 	}
 
 	/**
@@ -253,54 +308,63 @@ public class ProjectsCombo extends JComboBox {
 	 */
 	public void setGTDModel(GTDModel m) {
 		this.gtdModel = m;
-		reload();
+		comboModel.reload();
 		m.addGTDModelListener(new GTDModelAdapter() {
 			@Override
 			public void folderRemoved(Folder folder) {
-				reload();
+				comboModel.reload();
 			}
 		
 			@Override
 			public void folderModified(FolderEvent folder) {
-				reload();
+				comboModel.reload();
 			}
 		
 			@Override
 			public void folderAdded(Folder folder) {
-				reload();
+				comboModel.reload();
 			}
 		
 		});
 	}
 
-	/**
-	 * @return the selectedProject
-	 */
 	public Project getSelectedProject() {
-		return selectedProject;
+		
+		Object o= comboModel.getSelectedItem();
+		
+		if (o instanceof Project) {
+			return (Project)o;
+		}
+		
+		return null;
+		
+	}
+	
+	public void fireProjectChanged() {
+		if (last == comboModel.getSelectedItem()) {
+			return;
+		}
+		Project old= last instanceof Project ? (Project)last : null;
+		last= comboModel.getSelectedItem();
+		
+		firePropertyChange(SELECTED_PROJECT_PROPERTY_NAME, old, getSelectedProject());
 	}
 
 	/**
 	 * @param selectedProject the selectedProject to set
 	 */
 	public void setSelectedProject(Project selectedProject) {
-		if (selectedProject == this.selectedProject) {
+		if (selectedProject == getSelectedProject()) {
 			return;
 		}
-		Project old= this.selectedProject;
-		this.selectedProject = selectedProject;
 		
-		if (selectedProject!=comboModel.getSelectedItem()) {
-			if (selectedProject==null) {
-				comboModel.setSelectedItem(comboModel.getElementAt(0));
-			} else {
-				comboModel.setSelectedItem(selectedProject);
-			}
+		if (selectedProject==null) {
+			comboModel.setSelectedItem(NONE);
+		} else {
+			comboModel.setSelectedItem(selectedProject);
 		}
 		
-		if (!reloading) {
-			firePropertyChange(SELECTED_PROJECT_PROPERTY_NAME, old, selectedProject);
-		}
+		fireProjectChanged();
 	}
 	
 	public int getPreferredWidth() {
@@ -314,9 +378,13 @@ public class ProjectsCombo extends JComboBox {
 			return super.getPreferredSize();
 		}
 
-		Dimension d= getUI().getPreferredSize(this);
-		return new Dimension(d.width+d.height/2,d.height);
+		return new Dimension(getPreferredWidth(),ApplicationHelper.getDefaultFieldHeigth());
 		
+	}
+	
+	@Override
+	public Dimension getMinimumSize() {
+		return getPreferredSize();
 	}
 	
 	@Override
@@ -330,6 +398,15 @@ public class ProjectsCombo extends JComboBox {
 				}
 			}
 		}
+	}
+	
+	public boolean isShowClosedFolders() {
+		return showClosedFolders;
+	}
+	
+	public void setShowClosedFolders(boolean showClosedFolders) {
+		this.showClosedFolders = showClosedFolders;
+		comboModel.reload();
 	}
 
 }

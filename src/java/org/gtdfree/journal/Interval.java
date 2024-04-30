@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -26,10 +26,18 @@ package org.gtdfree.journal;
  */
 public class Interval implements Comparable<Interval> {
 
+	private JournalEntry entry;
 	private int start;
 	private int end;
 	
-	public Interval(int st, int en) {
+	/**
+	 * Construct a time interval.
+	 * 
+	 * @param st Number of seconds since start of day at the start of the interval.
+	 * @param en Number of seconds since start of day at the end of the interval. Might be larger than 24*60*60 if the interval ends in a subsequent day.
+	 */
+	public Interval(JournalEntry e, int st, int en) {
+		this.entry = e;
 		start=st;
 		end=en;
 	}
@@ -60,5 +68,14 @@ public class Interval implements Comparable<Interval> {
 	public int getEnd() {
 		return end;
 	}
-	
+
+	public void setStart(int start) {
+		this.start = start;
+		entry.intervalChanged(this);
+	}
+
+	public void setEnd(int end) {
+		this.end = end;
+		entry.intervalChanged(this);
+	}
 }

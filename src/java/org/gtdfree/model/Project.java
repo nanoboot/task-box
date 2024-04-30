@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -19,14 +19,16 @@
 
 package org.gtdfree.model;
 
+import org.gtdfree.model.GTDData.FolderDataProxy;
+
 /**
  * @author ikesan
  *
  */
 public class Project extends Folder {
 	private String goal;
-	public Project(GTDModel parent, int id, String name) {
-		super(parent, id, name, Folder.FolderType.PROJECT);
+	public Project(GTDModel parent, int id, String name, FolderDataProxy data) {
+		super(parent, id, name, Folder.FolderType.PROJECT,data);
 	}
 	/**
 	 * @return the goal
@@ -43,18 +45,19 @@ public class Project extends Folder {
 		}
 		String o= this.goal;
 		this.goal = goal;
-		getParent().fireFolderModified(this,"goal",o,goal,false);
+		// TODO support in data
+		getParent().fireFolderModified(this,"goal",o,goal,false); //$NON-NLS-1$
 	}
 	@Override
 	public String toString() {
 		StringBuilder sb= new StringBuilder();
-		sb.append("Project{ id= ");
+		sb.append("Project{ id= "); //$NON-NLS-1$
 		sb.append(getId());
-		sb.append(", name= ");
+		sb.append(", name= "); //$NON-NLS-1$
 		sb.append(getName());
-		sb.append(", closed= ");
+		sb.append(", closed= "); //$NON-NLS-1$
 		sb.append(isClosed());
-		sb.append("}");
+		sb.append("}"); //$NON-NLS-1$
 		return sb.toString();
 	}
 }

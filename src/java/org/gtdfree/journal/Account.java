@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -19,21 +19,12 @@
 
 package org.gtdfree.journal;
 
-import org.gtdfree.model.Folder;
-import org.gtdfree.model.Project;
 
 /**
  * @author ikesan
  *
  */
 public class Account {
-	
-	private String name;
-	private int projectId;
-	private Project project;
-	private int folderId;
-	private Folder folder;
-	private int referenceNumber;
 	
 	
 }

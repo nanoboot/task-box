@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -36,28 +36,36 @@ import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.EventObject;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
 import javax.swing.AbstractAction;
 import javax.swing.AbstractCellEditor;
+import javax.swing.ActionMap;
 import javax.swing.DefaultCellEditor;
 import javax.swing.JButton;
+import javax.swing.JPopupMenu;
+import javax.swing.JSeparator;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
-import javax.swing.SwingConstants;
 import javax.swing.RowSorter.SortKey;
+import javax.swing.SortOrder;
+import javax.swing.SwingConstants;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.event.RowSorterEvent;
@@ -71,18 +79,22 @@ import javax.swing.table.TableColumnModel;
 import javax.swing.table.TableModel;
 import javax.swing.table.TableRowSorter;
 
+import org.apache.log4j.Logger;
 import org.gtdfree.ApplicationHelper;
 import org.gtdfree.GTDFreeEngine;
+import org.gtdfree.Messages;
+import org.gtdfree.html.TAG;
 import org.gtdfree.model.Action;
+import org.gtdfree.model.Action.Resolution;
 import org.gtdfree.model.ActionFilter;
 import org.gtdfree.model.Folder;
+import org.gtdfree.model.Folder.FolderPreset;
 import org.gtdfree.model.FolderEvent;
 import org.gtdfree.model.FolderListener;
 import org.gtdfree.model.GTDModel;
 import org.gtdfree.model.Priority;
 import org.gtdfree.model.Project;
 import org.gtdfree.model.Utils;
-import org.gtdfree.model.Action.Resolution;
 
 
 /**
@@ -93,13 +105,13 @@ public class ActionTable extends JTable {
 	
 	private static final long serialVersionUID = 1L;
 
-	public static final String MOVE_DOWN= "actionTable.moveDown";
-	public static final String MOVE_UP= "actionTable.moveUp";
-	public static final String SELECT_NEXT = "actionTable.selectNext";
-	public static final String SELECT_PREVIOUS = "actionTable.selectPrevious";
+	public static final String JACTION_MOVE_DOWN= "actionTable.moveDown"; //$NON-NLS-1$
+	public static final String JACTION_MOVE_UP= "actionTable.moveUp"; //$NON-NLS-1$
+	public static final String JACTION_SELECT_NEXT = "actionTable.selectNext"; //$NON-NLS-1$
+	public static final String JACTION_SELECT_PREVIOUS = "actionTable.selectPrevious"; //$NON-NLS-1$
 	
-	public static final String FOLDER_PROPERTY_NAME = "folder";
-	public static final String SELECTED_ACTION_PROPERTY_NAME = "selectedAction";
+	public static final String FOLDER_PROPERTY_NAME = "folder"; //$NON-NLS-1$
+	public static final String SELECTED_ACTIONS_PROPERTY_NAME = "selectedActions"; //$NON-NLS-1$
 
 	
 	public static List<SortKey> EMPTY_KEYS= Collections.emptyList();
@@ -125,8 +137,25 @@ public class ActionTable extends JTable {
 			});
 			//editorComponent.setBorder(new LineBorder(UIManager.getColor("TextField.darkShadow"),1));
 		}
-
 		
+		@Override
+		public Component getTableCellEditorComponent(JTable table,
+				Object value, boolean isSelected, int row, int column) {
+			//value= model.getValueAt(convertRowIndexToModel(row), convertColumnIndexToModel(column));
+			if (value!=null) {
+				value=value.toString().replace('\n', '\u21B2');
+			}
+			return super.getTableCellEditorComponent(table, value, isSelected, row, column);
+		}
+		
+		@Override
+		public Object getCellEditorValue() {
+			Object val = super.getCellEditorValue();
+			if (val!=null) {
+				val=val.toString().replace('\u21B2', '\n');
+			}
+			return val;
+		}
 	}
 	class ActionCellEditor extends DefaultCellEditor implements TableCellEditor {
 		private static final long serialVersionUID = -4717152933319457542L;
@@ -155,20 +184,20 @@ public class ActionTable extends JTable {
 		public ProjectCellEditor() {
 			super();
 			combo= new ProjectsCombo();
-			combo.addPropertyChangeListener("selectedProject", new PropertyChangeListener() {
+			combo.addPropertyChangeListener(ProjectsCombo.SELECTED_PROJECT_PROPERTY_NAME, new PropertyChangeListener() { //$NON-NLS-1$
+				@Override
 				public void propertyChange(PropertyChangeEvent evt) {
 					stopCellEditing();
 				}
 			});
-			combo.addFocusListener(new FocusListener() {
+			combo.addPropertyChangeListener(ProjectsCombo.CANCELED_PROPERTY_NAME, new PropertyChangeListener() { //$NON-NLS-1$
 			
-				public void focusLost(FocusEvent e) {
-					cancelCellEditing();
+				@Override
+				public void propertyChange(PropertyChangeEvent evt) {
+					if (isEditing()) {
+						cancelCellEditing();
+					}
 				}
-			
-				public void focusGained(FocusEvent e) {
-				}
-			
 			});
 			combo.setOpaque(false);
 		}
@@ -177,6 +206,7 @@ public class ActionTable extends JTable {
 			combo.setGTDModel(m);
 		}
 		
+		@Override
 		public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
 			if (value instanceof Integer) {
 				p= engine.getGTDModel().getProject(((Integer)value));
@@ -187,6 +217,7 @@ public class ActionTable extends JTable {
 			}
 			return combo;
 		}
+		@Override
 		public Object getCellEditorValue() {
 			return combo.getSelectedProject() != null ? combo.getSelectedProject().getId() : null;
 		}
@@ -207,6 +238,9 @@ public class ActionTable extends JTable {
 		}
 		public int getPreferredWidth() {
 			return combo.getPreferredWidth();
+		}
+		public void setShowClosedFolders(boolean show) {
+			combo.setShowClosedFolders(show);
 		}
 	}
   
@@ -233,7 +267,8 @@ public class ActionTable extends JTable {
 				}
 			};
 			
-			pp.addPropertyChangeListener("priority", new PropertyChangeListener() {
+			pp.addPropertyChangeListener("priority", new PropertyChangeListener() { //$NON-NLS-1$
+				@Override
 				public void propertyChange(PropertyChangeEvent evt) {
 					if (setting) {
 						return;
@@ -243,10 +278,12 @@ public class ActionTable extends JTable {
 			});
 			pp.addFocusListener(new FocusListener() {
 			
+				@Override
 				public void focusLost(FocusEvent e) {
 					cancelCellEditing();
 				}
 			
+				@Override
 				public void focusGained(FocusEvent e) {
 				}
 			
@@ -255,6 +292,7 @@ public class ActionTable extends JTable {
 			pp.setBackground(editColor);
 		}
 		
+		@Override
 		public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
 			editing=true;
 			setting=true;
@@ -269,6 +307,7 @@ public class ActionTable extends JTable {
 			return pp;
 		}
 		
+		@Override
 		public Object getCellEditorValue() {
 			return pp.getPriority();
 		}
@@ -340,8 +379,11 @@ public class ActionTable extends JTable {
 	}
 
 	public class ActionTableModel extends AbstractTableModel implements TableModel {
+		private static final String DOTS = "..."; //$NON-NLS-1$
 		private static final long serialVersionUID = 1L;
 		private List<Action> data= new ArrayList<Action>();
+		private ArrayList<WeakReference<String>> descriptions= new ArrayList<WeakReference<String>>();
+		private ArrayList<WeakReference<String>> tooltips= new ArrayList<WeakReference<String>>();
 
 		/*private void sort() {
 			if (comparator!=null) {
@@ -349,12 +391,14 @@ public class ActionTable extends JTable {
 			}
 		}*/
 		
+		@Override
 		public Object getValueAt(int rowIndex, int columnIndex) {
 			Action i= data.get(rowIndex);
+			
 			switch (columnIndex) {
 				case 0:
 					return i.getId();
-				case 1:
+				case 1: 
 					return i.getDescription();
 				case 2:
 					return i.getResolution();
@@ -365,7 +409,7 @@ public class ActionTable extends JTable {
 				case 5:
 					return i.getProject();
 				case 6:
-					return i.getFolder();
+					return i.getParent();
 				case 7:
 					return i;
 				case 8:
@@ -381,10 +425,12 @@ public class ActionTable extends JTable {
 			return data.get(rowIndex);
 		}
 
+		@Override
 		public int getColumnCount() {
 			return 10;
 		}
 
+		@Override
 		public int getRowCount() {
 			return data.size();
 		}
@@ -394,6 +440,8 @@ public class ActionTable extends JTable {
 			int ix= data.indexOf(i);
 			if (ix>-1) {
 				data.remove(ix);
+				descriptions.remove(ix);
+				tooltips.remove(ix);
 				fireTableRowsDeleted( ix, ix);
 				if (sel>=getRowCount()) {
 					sel=getRowCount()-1;
@@ -405,29 +453,32 @@ public class ActionTable extends JTable {
 		}
 		
 		public void reload(Folder f, ActionFilter a) {
+			
 			data.clear();
 			
 			int width=45;
 			if (f!=null) {
 				
 				if (a!=null) {
-					for (Action note : f) {
-						if ((showAll || note.isOpen()) && a.isAcceptable(f, note)) {
+					Iterator<Action> it= f.iterator(showAll ? FolderPreset.ALL : FolderPreset.OPEN);
+					while (it.hasNext()) {
+						Action note= it.next();
+						if (a.isAcceptable(f, note)) {
 							data.add(note);
 							if (showFolderColumn) {
-								int i= getFontMetrics(getFont()).stringWidth(note.getFolder().getName());
+								int i= getFontMetrics(getFont()).stringWidth(note.getParent().getName());
 								if (i>width) width=i;
 							}
 						}
 					}
 				} else {
-					for (Action note : f) {
-						if (showAll || note.isOpen()) {
-							data.add(note);
-							if (showFolderColumn) {
-								int i= getFontMetrics(getFont()).stringWidth(note.getFolder().getName());
-								if (i>width) width=i;
-							}
+					Iterator<Action> it= f.iterator(showAll ? FolderPreset.ALL : FolderPreset.OPEN);
+					while (it.hasNext()) {
+						Action note= it.next();
+						data.add(note);
+						if (showFolderColumn) {
+							int i= getFontMetrics(getFont()).stringWidth(note.getParent().getName());
+							if (i>width) width=i;
 						}
 					}
 				}
@@ -442,8 +493,83 @@ public class ActionTable extends JTable {
 					getFolderColumn().setPreferredWidth(width);
 				}
 			}
+
+			descriptions.clear();
+			tooltips.clear();
+			descriptions.ensureCapacity(data.size());
+			tooltips.ensureCapacity(data.size());
+			for (int i = 0; i < data.size(); i++) {
+				descriptions.add(null);
+				tooltips.add(null);
+			}
+			
 			fireTableDataChanged();
 			enableSelectActions();
+		}
+		
+		public String getDescription(int row) {
+			if (descriptions.size()<=row) {
+				return toDescription(data.get(row).getDescription());
+			}
+			WeakReference<String> w= descriptions.get(row);
+			if (w!=null) {
+				String s= w.get();
+				if (s!=null) {
+					return s;
+				}
+			}
+			String s= toDescription(data.get(row).getDescription());
+			descriptions.set(row,new WeakReference<String>(s));
+			return s;
+		}
+		
+		public String getTooltip(int row) {
+			if (tooltips.size()<=row) {
+				return toTooltip(data.get(row).getDescription());
+			}
+			WeakReference<String> w= tooltips.get(row);
+			if (w!=null) {
+				String s= w.get();
+				if (s!=null) {
+					return s;
+				}
+			}
+			String s= toTooltip(data.get(row).getDescription());
+			tooltips.set(row, new WeakReference<String>(s));
+			return s;
+		}
+		
+		private String toDescription(String s) {
+			if (s==null) {
+				return ApplicationHelper.EMPTY_STRING;
+			}
+			return s.replace('\n', ' ');
+		}
+		
+		private String toTooltip(String s) {
+			if (s==null) {
+				return ApplicationHelper.EMPTY_STRING;
+			}
+			StringBuilder sb= new StringBuilder(s.length()+128);
+			TAG.HTML.printTag(sb);
+			TAG.BODY.printTag(sb);
+			int line=0;
+			for (int i = 0; i < s.length(); i++) {
+				char c= s.charAt(i);
+				if (c=='\n') {
+					TAG.BR.printTag(sb);
+					line++;
+					if (line >= maxTooltipLines) {
+						sb.append(DOTS);
+						break;
+					}
+				} else {
+					sb.append(c);
+				}
+			}
+			TAG.BODY.printTagEnd(sb);
+			TAG.HTML.printTagEnd(sb);
+			return sb.toString();
 		}
 
 		public void fireActionChanged(int ix) {
@@ -455,10 +581,13 @@ public class ActionTable extends JTable {
 				if (!showAll && !note.isOpen()) {
 					int sel= getSelectedRow();
 					data.remove(i);
+					descriptions.remove(i);
+					tooltips.remove(i);
+
 					try {
 						fireTableRowsDeleted(i, i);
 					} catch (Exception e) {
-						e.printStackTrace();
+						Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
 					}
 					if (sel>=getRowCount()) {
 						sel=getRowCount()-1;
@@ -468,9 +597,11 @@ public class ActionTable extends JTable {
 					}
 				} else {
 					try {
+						descriptions.set(i,null);
+						tooltips.set(i,null);
 						fireTableRowsUpdated(i, i);
 					} catch (Exception e) {
-						e.printStackTrace();
+						Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
 					}
 				}
 			}
@@ -479,6 +610,8 @@ public class ActionTable extends JTable {
 		@Override
 		public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
 			Action i= data.get(rowIndex);
+			descriptions.set(rowIndex,null);
+			tooltips.set(rowIndex,null);
 			switch (columnIndex) {
 				case 0:
 					return;
@@ -491,19 +624,32 @@ public class ActionTable extends JTable {
 					} else {
 						i.setProject(null);
 					}
-					break;
+				break;
 				case 9: 
 					if (aValue instanceof Priority) {
 						i.setPriority(((Priority)aValue));
 					} else {
 						i.setPriority(Priority.None);
 					}
-					break;
+				break;
 				default:
 					return;
 			}
 			if (rowIndex<data.size()) {
 				fireTableCellUpdated(rowIndex, columnIndex);
+			}
+		}
+		
+		public void updateRow(int row) {
+			descriptions.set(row,null);
+			tooltips.set(row,null);
+			fireTableRowsUpdated(row, row);
+		}
+		
+		public void updateAction(Action a) {
+			int i= data.indexOf(a);
+			if (i>=0) {
+				updateRow(i);
 			}
 		}
 		
@@ -556,7 +702,7 @@ public class ActionTable extends JTable {
 				case 3:
 					return "Remind"; //$NON-NLS-1$
 				case 9:
-					return "Priority";
+					return Messages.getString("ActionTable.Priority"); //$NON-NLS-1$
 				default:
 					return ApplicationHelper.EMPTY_STRING;
 			}
@@ -565,6 +711,8 @@ public class ActionTable extends JTable {
 		public void remove(int row) {
 			int sel= getSelectedRow();
 			data.remove(row);
+			descriptions.remove(row);
+			tooltips.remove(row);
 			fireTableRowsDeleted( row, row);
 			if (sel>=getRowCount()) {
 				sel=getRowCount()-1;
@@ -592,6 +740,7 @@ public class ActionTable extends JTable {
 			button.setBackground(getBackground());
 			button.addActionListener(new ActionListener() {
 			
+				@Override
 				public void actionPerformed(ActionEvent e) {
 					stopCellEditing();
 					if (note!=null) {
@@ -610,30 +759,31 @@ public class ActionTable extends JTable {
 				if (cellAction==CellAction.DELETE) {
 					a= CellAction.DELETE;
 					resolution = Resolution.DELETED;
-					button.setToolTipText(Messages.getString("delete.Tooltip"));
+					button.setToolTipText(Messages.getString("ActionTable.Delete.desc")); //$NON-NLS-1$
 					button.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_delete));
 					return true;
 				} if (cellAction== CellAction.RESOLVE) {
 					a= CellAction.RESOLVE;
 					resolution = Resolution.RESOLVED;
-					button.setToolTipText(Messages.getString("action.Resolve")); //$NON-NLS-1$
+					button.setToolTipText(Messages.getString("ActionTable.Resolve")); //$NON-NLS-1$
 					button.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_resolve));
 					return true;
 				}
 				a= CellAction.REOPEN;
 				resolution = Resolution.OPEN;
-				button.setToolTipText("Reopens resolved or deleted action.");
+				button.setToolTipText(Messages.getString("ActionTable.Reopen.desc")); //$NON-NLS-1$
 				button.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_undelete));
 				return false;
 			} 
 			
 			a= CellAction.REOPEN;
 			resolution = Resolution.OPEN;
-			button.setToolTipText("Reopens resolved or deleted action.");
+			button.setToolTipText(Messages.getString("ActionTable.Reopen.desc")); //$NON-NLS-1$
 			button.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_undelete));
 			return true;
 		}
 		
+		@Override
 		public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
 			if (value instanceof Action) {
 				this.note=(Action)value;
@@ -645,10 +795,12 @@ public class ActionTable extends JTable {
 			return button;
 		}
 
+		@Override
 		public Object getCellEditorValue() {
 			return null;
 		}
 
+		@Override
 		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
 			if (value instanceof Action) {
 				this.note=(Action)value;
@@ -673,13 +825,14 @@ public class ActionTable extends JTable {
 		public QueueCellEditor() {
 			button= new JToggleButton();
 			button.setMargin(new Insets(0,0,0,0));
-			button.setToolTipText(Messages.getString("queue.Tooltip"));
+			button.setToolTipText(Messages.getString("ActionTable.Queue.desc")); //$NON-NLS-1$
 			button.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_queue_off));
 			button.setSelectedIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_queue_on));
 			button.setDisabledSelectedIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_queue_off));
 			button.setBackground(getBackground());
 			button.addActionListener(new ActionListener() {
 			
+				@Override
 				public void actionPerformed(ActionEvent e) {
 					stopCellEditing();
 					if (note!=null) {
@@ -690,6 +843,7 @@ public class ActionTable extends JTable {
 			});
 		}
 		
+		@Override
 		public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
 			if (value instanceof Action) {
 				this.note=(Action)value;
@@ -707,10 +861,12 @@ public class ActionTable extends JTable {
 			return button;
 		}
 
+		@Override
 		public Object getCellEditorValue() {
 			return null;
 		}
 
+		@Override
 		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
 			if (value instanceof Action) {
 				Action n=(Action)value;
@@ -741,6 +897,7 @@ public class ActionTable extends JTable {
 			setSortsOnUpdates(true);
 			setComparator(4, new Comparator<Action>() {
 			
+				@Override
 				public int compare(Action o1, Action o2) {
 					if (o1.isQueued() && !o2.isQueued()) {
 						return -1;
@@ -752,8 +909,53 @@ public class ActionTable extends JTable {
 				}
 			
 			});
+			setComparator(5, new Comparator<Integer>() {
+				@Override
+				public int compare(Integer o1, Integer o2) {
+					if (o1==null && o2==null) {
+						return 0;
+					}
+					if (o1==null) {
+						return -1;
+					}
+					if (o2==null) {
+						return 1;
+					}
+					if (o1.equals(o2)) {
+						return 0;
+					}
+					Project p1= engine.getGTDModel().getProject(o1);
+					Project p2= engine.getGTDModel().getProject(o2);
+					if (p1==null && p2==null) {
+						return 0;
+					}
+					if (p1==null) {
+						return -1;
+					}
+					if (p2==null) {
+						return 1;
+					}
+					return p1.getName().compareTo(p2.getName());
+				}
+			});
+			setComparator(6, new Comparator<Folder>() {
+				@Override
+				public int compare(Folder o1, Folder o2) {
+					if (o1==null && o2==null) {
+						return 0;
+					}
+					if (o1==null) {
+						return -1;
+					}
+					if (o2==null) {
+						return 1;
+					}
+					return o1.getName().compareTo(o2.getName());
+				}
+			});
 			setComparator(7, new Comparator<Action>() {
 				
+				@Override
 				public int compare(Action o1, Action o2) {
 					if (o1.isOpen() && !o2.isOpen()) {
 						return -1;
@@ -775,23 +977,121 @@ public class ActionTable extends JTable {
 			});
 		}
 		
-		public boolean isTransformed() {
+		/*public boolean isTransformed() {
 			return getSortKeys()!=null && getSortKeys().size()>0;
+		}*/
+		
+		public boolean isUnsorted() {
+			List<? extends SortKey> keys = getSortKeys();
+	        int keySize = keys.size();
+	        return (keySize == 0 || keys.get(0).getSortOrder() ==
+	                SortOrder.UNSORTED);
 		}
 		
+	    private void checkColumn(int column) {
+	        if (column < 0 || column >= getModelWrapper().getColumnCount()) {
+	            throw new IndexOutOfBoundsException(
+	                    "column beyond range of TableModel"); //$NON-NLS-1$
+	        }
+	    }
+		@Override
+		public void toggleSortOrder(int column) {
+	        checkColumn(column);
+	        if (isSortable(column)) {
+	            List<SortKey> keys = new ArrayList<SortKey>(getSortKeys());
+	            SortKey sortKey;
+	            int sortIndex;
+	            for (sortIndex = keys.size() - 1; sortIndex >= 0; sortIndex--) {
+	                if (keys.get(sortIndex).getColumn() == column) {
+	                    break;
+	                }
+	            }
+	            if (sortIndex == -1) {
+	                // Key doesn't exist
+	                sortKey = new SortKey(column, SortOrder.ASCENDING);
+	                keys.add(0, sortKey);
+	            }
+	            else if (sortIndex == 0) {
+	                // It's the primary sorting key, toggle it
+	                keys.set(0, toggle(keys.get(0)));
+	            }
+	            else {
+	                // It's not the first, but was sorted on, remove old
+	                // entry, insert as first with ascending.
+	                keys.remove(sortIndex);
+	                keys.add(0, new SortKey(column, SortOrder.ASCENDING));
+	            }
+	            if (keys.size() > getMaxSortKeys()) {
+	                keys = keys.subList(0, getMaxSortKeys());
+	            }
+	            setSortKeys(keys);
+	        }
+        }
+
+		private SortKey toggle(SortKey key) {
+	        if (key.getSortOrder() == SortOrder.ASCENDING) {
+	            return new SortKey(key.getColumn(), SortOrder.DESCENDING);
+	        }
+	        if (key.getSortOrder() == SortOrder.DESCENDING) {
+	            return new SortKey(key.getColumn(), SortOrder.UNSORTED);
+	        }
+	        return new SortKey(key.getColumn(), SortOrder.ASCENDING);
+	    }
+
+	}
+	
+	abstract class TicklingTableCellRenderer extends DefaultTableCellRenderer {
+
+		private static final long serialVersionUID = 1L;
+
+		private Color alarmBackground= new Color(0xf8ff89);
+		
+		public void decorateByDate(Date d, boolean isSelected, boolean hasFocus) {
+			if (isSelected || hasFocus) {
+				return;
+			}
+			if (d==null) {
+				setForeground(ActionTable.this.getForeground());
+				setBackground(ActionTable.this.getBackground());
+				setFont(getFont().deriveFont(Font.PLAIN));
+			} else {
+				long today= Utils.today();
+				if(d.getTime()<today) {
+					setForeground(Color.RED);
+					setBackground(ActionTable.this.getBackground());
+					setFont(getFont().deriveFont(Font.PLAIN));
+				} else {
+					if (d.getTime()<today+Utils.MILLISECONDS_IN_DAY) {
+						setForeground(Color.RED);
+						setFont(getFont().deriveFont(Font.BOLD));
+					} else {
+						setForeground(ActionTable.this.getForeground());
+						setFont(getFont().deriveFont(Font.PLAIN));
+					}
+					if (d.getTime()-today<3*Utils.MILLISECONDS_IN_DAY) {
+						setBackground(alarmBackground);
+					} else {
+						setBackground(ActionTable.this.getBackground());
+					}
+				}
+			}
+		}
 	}
 
+	private int maxTooltipLines= 5;
 	private boolean moveEnabled=false;
 	protected Folder folder;
 	private ActionTableModel model;
 	private boolean showAll=false;
 	private FolderListener folderListener = new FolderListener() {
 		
+		@Override
 		public void elementRemoved(FolderEvent note) {
 			model.remove(note.getAction());
 			enableSelectActions();
 		}
 	
+		@Override
 		public void elementModified(org.gtdfree.model.ActionEvent note) {
 			model.fireActionChanged(note.getAction());
 			
@@ -813,12 +1113,16 @@ public class ActionTable extends JTable {
 			}
 		}
 	
+		@Override
 		public void elementAdded(FolderEvent note) {
 			updateIDColumnWidth();
 			model.reload(folder,filter);
 			enableSelectActions();
+			int i= model.indexOf(note.getAction());
+			getSelectionModel().setSelectionInterval(i, i);
 		}
 		
+		@Override
 		public void orderChanged(Folder f) {
 			Action a= getSelectedAction();
 			model.reload(folder,filter);
@@ -829,7 +1133,7 @@ public class ActionTable extends JTable {
 	};
 	private AbstractAction moveUpAction;
 	private AbstractAction moveDownAction;
-	private Action selectedAction;
+	private Action[] selectedActions;
 	private ActionFilter filter;
 	private ProjectCellEditor projectEditor;
 	private GTDFreeEngine engine;
@@ -848,6 +1152,8 @@ public class ActionTable extends JTable {
 	private boolean showQueueColumn=true;
 	private boolean showProjectColumn;
 	private boolean showRemindColumn=false;
+	private boolean singleSelectionMode=false;
+	private boolean showClosedFolders=false;
 
 	private ActionRowSorter rowSorter;
 
@@ -856,6 +1162,12 @@ public class ActionTable extends JTable {
 	private AbstractAction goPreviousAction;
 
 	private CellAction cellAction= CellAction.RESOLVE;
+
+	private ActionTransferHandler transferHandler;
+
+	private JPopupMenu popupMenu;
+	
+	private AbstractAction saveRowOrder;
 	
 	
 	public void setCellAction(CellAction a) {
@@ -975,40 +1287,31 @@ public class ActionTable extends JTable {
 			remindColumn.setMaxWidth(110);
 			remindColumn.setPreferredWidth(110);
 			remindColumn.setResizable(false);
-			remindColumn.setHeaderValue(Messages.getString("action.Reminder")); //$NON-NLS-1$
-			remindColumn.setCellRenderer(new DefaultTableCellRenderer() {
+			remindColumn.setHeaderValue(Messages.getString("ActionTable.Reminder")); //$NON-NLS-1$
+			remindColumn.setCellRenderer(new TicklingTableCellRenderer() {
 				private static final long serialVersionUID = 1L;
 
 				@Override
 				public Component getTableCellRendererComponent(JTable table,
 						Object value, boolean isSelected, boolean hasFocus,
 						int row, int column) {
+					
 					Date d=null;
+					
+
 					if (value instanceof Date) {
 						d= (Date)value;
 						value= ApplicationHelper.toISODateString(d);
 						
-						long today= Utils.today();
-						if(d.getTime()<today) {
-							setForeground(Color.RED);
-							setBackground(ActionTable.this.getBackground());
-						} else {
-							if (d.getTime()<today+Utils.MILLISECONDS_IN_DAY) {
-								setForeground(Color.RED);
-							} else {
-								setForeground(ActionTable.this.getForeground());
-							}
-							if (d.getTime()-today<3*Utils.MILLISECONDS_IN_DAY) {
-								setBackground(Color.YELLOW);
-							} else {
-								setBackground(ActionTable.this.getBackground());
-							}
-						}
+						Component c= super.getTableCellRendererComponent(table,  value, isSelected, hasFocus,
+								row, column);
+
+						decorateByDate(d,isSelected,hasFocus);
+
+						return c;
 					}
-					Component c= super.getTableCellRendererComponent(table,  value, isSelected, hasFocus,
+					return super.getTableCellRendererComponent(table,  value, isSelected, hasFocus,
 							row, column);
-					
-					return c;
 				}
 			});
 		}
@@ -1023,7 +1326,7 @@ public class ActionTable extends JTable {
 			resolvedColumn.setMaxWidth(110);
 			resolvedColumn.setPreferredWidth(110);
 			resolvedColumn.setResizable(false);
-			resolvedColumn.setHeaderValue("Resolved");
+			resolvedColumn.setHeaderValue(Messages.getString("ActionTable.Resolved")); //$NON-NLS-1$
 			resolvedColumn.setCellRenderer(new DefaultTableCellRenderer() {
 				private static final long serialVersionUID = 1L;
 
@@ -1051,14 +1354,21 @@ public class ActionTable extends JTable {
 			idColumn.setMaxWidth(45);
 			idColumn.setPreferredWidth(45);
 			idColumn.setResizable(false);
-			DefaultTableCellRenderer tce= new DefaultTableCellRenderer() {
+			DefaultTableCellRenderer tce= new TicklingTableCellRenderer() {
 				private static final long serialVersionUID = 1L;
 				@Override
 				public Component getTableCellRendererComponent(JTable table,
 						Object value, boolean isSelected, boolean hasFocus,
 						int row, int column) {
-					return super.getTableCellRendererComponent(table, value instanceof Integer ? value.toString()+" " : value, isSelected, hasFocus,
+					
+					Component c= super.getTableCellRendererComponent(table, value instanceof Integer ? value.toString()+" " : value, isSelected, hasFocus, //$NON-NLS-1$
 							row, column);
+					
+					if (row<model.getRowCount()) {
+						decorateByDate(model.getAction(row).getRemind(),isSelected,hasFocus);
+					}
+
+					return c;
 				}
 			};
 			tce.setHorizontalAlignment(SwingConstants.RIGHT);
@@ -1079,12 +1389,10 @@ public class ActionTable extends JTable {
 				public Component getTableCellRendererComponent(JTable table,
 						Object value, boolean isSelected, boolean hasFocus,
 						int row, int column) {
-					if (value!=null) {
-						setToolTipText(value.toString());
-					} else {
-						setToolTipText(ApplicationHelper.EMPTY_STRING);
-					}
-					return super.getTableCellRendererComponent(table, value, isSelected, hasFocus,
+					
+					int r= convertRowIndexToModel(row);
+					setToolTipText(model.getTooltip(r));
+					return super.getTableCellRendererComponent(table, model.getDescription(r), isSelected, hasFocus,
 							row, column);
 				}
 			};
@@ -1125,6 +1433,8 @@ public class ActionTable extends JTable {
 			projectColumn.setCellRenderer(tce);
 			
 			projectEditor = new ProjectCellEditor();
+			projectEditor.setShowClosedFolders(showClosedFolders);
+			
 			projectColumn.setCellEditor(projectEditor);
 			
 			if (engine!=null) {
@@ -1146,7 +1456,7 @@ public class ActionTable extends JTable {
 			PriorityCellEditor e= new PriorityCellEditor();
 			priorityColumn.setCellEditor(e);
 			priorityColumn.setModelIndex(9);
-			priorityColumn.setHeaderValue("Priority");
+			priorityColumn.setHeaderValue(Messages.getString("ActionTable.Priority")); //$NON-NLS-1$
 			priorityColumn.setWidth(e.getPreferredSize().width);
 			priorityColumn.setMinWidth(e.getPreferredSize().width);
 			priorityColumn.setMaxWidth(e.getPreferredSize().width);
@@ -1232,7 +1542,7 @@ public class ActionTable extends JTable {
 	}
 
 	private void initialize() {
-		setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 		setShowHorizontalLines(false);
 		setShowVerticalLines(false);
 		setCellSelectionEnabled(false);
@@ -1264,60 +1574,139 @@ public class ActionTable extends JTable {
 		setRowHeight(fm.getHeight()+3);
 		
 		setDragEnabled(true);
-		setTransferHandler(new ActionTransferHandler() {
+		setTransferHandler(transferHandler= new ActionTransferHandler() {
 		
 			private static final long serialVersionUID = -1850999423399406990L;
 
 			@Override
-			protected boolean importAction(int id, TransferSupport support) {
-				Action a= folder.getParent().getAction(id);
-				a.getFolder().getParent().moveAction(a, folder);
-				return true;
+			protected boolean importActions(Action[] a, Folder source, int[] indexes, TransferSupport support) {
+				if (a!=null && a.length>0 ) {
+					engine.getGTDModel().moveActions(a, folder);
+					return true;
+				}
+				return false;
 			}
 		
 			@Override
-			protected Integer exportAction() {
-				Point p= getMousePosition();
-				if (p!=null) {
-					int i= rowAtPoint(p);
-					if (i>-1) {
-						return model.getAction(i).getId();
-					}
+			protected Action[] exportActions() {
+				Action[] a= getSelectedActions();
+				if (a==null || a.length==0) {
+					return null;
 				}
-				return null;
+				return a;
+			}
+			
+			@Override
+			protected int[] exportIndexes() {
+				return getSelectedRows();
+			}
+			
+			@Override
+			protected Folder exportSourceFolder() {
+				return getFolder();
 			}
 			
 		});
 		
 		getSelectionModel().addListSelectionListener(new ListSelectionListener() {
 		
+			@Override
 			public void valueChanged(ListSelectionEvent e) {
 				if (!e.getValueIsAdjusting()) {
-					Action old= selectedAction;
-					int i= getSelectedRow();
-					if (i>-1&&i<model.getRowCount()) {
-						selectedAction= model.getAction(convertRowIndexToModel(i));
+					Action[] old= selectedActions;
+					int[] rows= getSelectedRows();
+					List<Action> a= new ArrayList<Action>();
+					for (int j = 0; j < rows.length; j++) {
+						if (rows[j]>-1&&rows[j]<model.getRowCount()) {
+							a.add(model.getAction(convertRowIndexToModel(rows[j])));
+						}
+					}
+					if (a.size()>0) {
+						selectedActions= a.toArray(new Action[a.size()]);
 					} else {
-						selectedAction= null;
+						selectedActions=null;
 					}
 					enableMoveActions();
 					try {
-						firePropertyChange(SELECTED_ACTION_PROPERTY_NAME, old, selectedAction);
+						firePropertyChange(SELECTED_ACTIONS_PROPERTY_NAME, old, selectedActions);
 					} catch (Exception ex) {
-						ex.printStackTrace();
+						Logger.getLogger(this.getClass()).debug("Internal error.", ex); //$NON-NLS-1$
 					}
 				}
 			}
 		
 		});
 		
+		addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				tryPopup(e);
+			}
+			@Override
+			public void mousePressed(MouseEvent e) {
+				tryPopup(e);
+			}
+			
+			public void tryPopup(MouseEvent e) {
+				if (e.isPopupTrigger()) {
+					getPopupMenu().show(e.getComponent(), e.getX(), e.getY());
+				}
+			}
+		});
 		
-		getMoveDownAction();
-		getMoveUpAction();
-		getSelectNextAction();
-		getSelectPreviousAction();
+		getActionMap().put(JACTION_MOVE_DOWN, getMoveDownAction());
+		getActionMap().put(JACTION_MOVE_UP, getMoveUpAction());
+		getActionMap().put(JACTION_SELECT_NEXT, getSelectNextAction());
+		getActionMap().put(JACTION_SELECT_PREVIOUS, getSelectPreviousAction());
 	}
 	
+	private JPopupMenu getPopupMenu() {
+		if (popupMenu == null) {
+			popupMenu = new JPopupMenu();
+			popupMenu.add(getActionMap().get(ActionPanel.JACTION_RESOLVE));
+			popupMenu.add(getActionMap().get(ActionPanel.JACTION_QUEUE));
+			popupMenu.add(getActionMap().get(ActionPanel.JACTION_DELETE));
+			popupMenu.add(getActionMap().get(ActionPanel.JACTION_REOPEN));
+			popupMenu.add(new JSeparator());
+			popupMenu.add(getSelectNextAction());
+			popupMenu.add(getSelectPreviousAction());
+			popupMenu.add(getMoveUpAction());
+			popupMenu.add(getMoveDownAction());
+			popupMenu.add(new JSeparator());
+			popupMenu.add(getSaveRowOrder());
+		}
+
+		return popupMenu;
+	}
+
+	private javax.swing.Action getSaveRowOrder() {
+		if (saveRowOrder == null) {
+
+			saveRowOrder = new AbstractAction(Messages.getString("ActionTable.SaveRowOrder")) { //$NON-NLS-1$
+				
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					saveActionOrder();
+				}
+			};
+			saveRowOrder.setEnabled(!rowSorter.isUnsorted());
+			
+			
+			rowSorter.addRowSorterListener(new RowSorterListener() {
+				
+				@Override
+				public void sorterChanged(RowSorterEvent e) {
+					saveRowOrder.setEnabled(!rowSorter.isUnsorted());
+				}
+			});
+			
+		}
+
+		return saveRowOrder;
+	}
+
 	public void setSelectedAction(Action a) {
 		
 		int i = model.indexOf(a);
@@ -1386,7 +1775,7 @@ public class ActionTable extends JTable {
 	private void updateIDColumnWidth() {
 		int id= folder.getParent().getLastActionID();
 		Component c= getColumnModel().getColumn(0).getCellRenderer().getTableCellRendererComponent(this, id, false, false, 0, 0);
-		int size= c.getFontMetrics(c.getFont()).stringWidth(id+" ")+10;
+		int size= c.getFontMetrics(c.getFont()).stringWidth(id+" ")+10; //$NON-NLS-1$
 		if (size!=getIDColumn().getPreferredWidth()) {
 			getIDColumn().setWidth(size);
 			getIDColumn().setMinWidth(size);
@@ -1395,8 +1784,22 @@ public class ActionTable extends JTable {
 		}
 	}
 
+	/**
+	 * Return action at specified row index in terms of model.
+	 * @param row a row index in terms of model
+	 * @return action at specified row index in terms of model
+	 */
 	public Action getAction(int row) {
 		return model.getAction(row);
+	}
+
+	/**
+	 * Return action at specified row index in terms of view.
+	 * @param row a row index in terms of view
+	 * @return action at specified row index in terms of view
+	 */
+	public Action getActionAtView(int row) {
+		return model.getAction(convertRowIndexToModel(row));
 	}
 
 	/**
@@ -1418,7 +1821,19 @@ public class ActionTable extends JTable {
 	}
 	
 	public Action getSelectedAction() {
-		return selectedAction;
+		return selectedActions!=null ? selectedActions[0] : null;
+	}
+
+	public Action getFirstSelectedAction() {
+		return selectedActions!=null ? selectedActions[0] : null;
+	}
+
+	public Action getLastSelectedAction() {
+		return selectedActions!=null ? selectedActions[selectedActions.length-1] : null;
+	}
+
+	public Action[] getSelectedActions() {
+		return selectedActions;
 	}
 
 	/**
@@ -1442,10 +1857,10 @@ public class ActionTable extends JTable {
 	
 	private void enableMoveActions() {
 		if (moveUpAction!=null) {
-			moveUpAction.setEnabled(moveEnabled && getSelectedAction()!=null && !rowSorter.isTransformed() && engine.getStateMachine().getChangeActionOrder(getFolder().getType()) && getFolder().canMoveUp(getSelectedAction()));
+			moveUpAction.setEnabled(moveEnabled && getSelectedAction()!=null /*&& rowSorter.isUnsorted()*/ && engine.getStateMachine().getChangeActionOrder(getFolder().getType()) && getFolder().canMoveUp(getSelectedAction()));
 		}
 		if (moveDownAction!=null) {
-			moveDownAction.setEnabled(moveEnabled && getSelectedAction()!=null && !rowSorter.isTransformed() && engine.getStateMachine().getChangeActionOrder(getFolder().getType()) && getFolder().canMoveDown(getSelectedAction()));
+			moveDownAction.setEnabled(moveEnabled && getSelectedAction()!=null /*&& rowSorter.isUnsorted()*/ && engine.getStateMachine().getChangeActionOrder(getFolder().getType()) && getFolder().canMoveDown(getSelectedAction()));
 		}
 	}
 	private void enableSelectActions() {
@@ -1457,97 +1872,119 @@ public class ActionTable extends JTable {
 		}
 	}
 	
-	public javax.swing.Action getMoveUpAction() {
+	private javax.swing.Action getMoveUpAction() {
 		if (moveUpAction == null) {
 			moveUpAction = new AbstractAction(Messages.getString("ActionTable.MoveUp")) { //$NON-NLS-1$
 				private static final long serialVersionUID = 9040402331054547898L;
 
+				@Override
 				public void actionPerformed(ActionEvent e) {
 					if (moveEnabled) {
 						if (getSelectedAction()!=null) {
-							getRowSorter().setSortKeys(EMPTY_KEYS);
-							getFolder().moveUp(getSelectedAction());
-							enableMoveActions();
+							if (!rowSorter.isUnsorted()) {
+								saveActionOrder();
+								getRowSorter().setSortKeys(EMPTY_KEYS);
+							} else {
+								getRowSorter().setSortKeys(EMPTY_KEYS);
+								getFolder().moveUp(getFirstSelectedAction());
+								enableMoveActions();
+							}
 						}
 					}
 				}
 			};
-			moveUpAction.putValue(javax.swing.Action.SHORT_DESCRIPTION, "Move current action one place up.");
+			moveUpAction.putValue(javax.swing.Action.SHORT_DESCRIPTION, Messages.getString("ActionTable.MoveUp.desc")); //$NON-NLS-1$
 			moveUpAction.putValue(javax.swing.Action.LARGE_ICON_KEY, ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_up));
 			moveUpAction.putValue(javax.swing.Action.SMALL_ICON, ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_up));
 			moveUpAction.putValue(javax.swing.Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_UP, InputEvent.CTRL_DOWN_MASK));
-			getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, InputEvent.CTRL_DOWN_MASK), MOVE_UP);
-			getActionMap().put(MOVE_UP, moveUpAction);
+			getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, InputEvent.CTRL_DOWN_MASK), JACTION_MOVE_UP);
+			getActionMap().put(JACTION_MOVE_UP, moveUpAction);
 			enableMoveActions();
 		}
 
 		return moveUpAction;
 	}
-	public javax.swing.Action getSelectNextAction() {
+	private javax.swing.Action getSelectNextAction() {
 		if (goNextAction == null) {
-			goNextAction = new AbstractAction("Select next") {
+			goNextAction = new AbstractAction(Messages.getString("ActionTable.Next")) { //$NON-NLS-1$
 
 				private static final long serialVersionUID = 1L;
 
+				@Override
 				public void actionPerformed(ActionEvent e) {
-					int i= getSelectedRow();
-					if (i==-1 || ++i>=getRowCount()) {
-						i=0;
+					int[] i= getSelectedRows();
+					int sel;
+					if (i==null || i.length==0 || i[i.length-1]==-1 || i[i.length-1]+1>=getRowCount()) {
+						sel=0;
+					} else {
+						sel= i[i.length-1]+1;
 					}
-					getSelectionModel().setSelectionInterval(i, i);
+					getSelectionModel().setSelectionInterval(sel, sel);
 				}
 			};
-			goNextAction.putValue(javax.swing.Action.SHORT_DESCRIPTION, "Select next action in list.");
+			goNextAction.putValue(javax.swing.Action.SHORT_DESCRIPTION, Messages.getString("ActionTable.Next.desc")); //$NON-NLS-1$
 			goNextAction.putValue(javax.swing.Action.LARGE_ICON_KEY, ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_next));
 			goNextAction.putValue(javax.swing.Action.SMALL_ICON, ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_next));
-			getActionMap().put(SELECT_NEXT, goNextAction);
+			getActionMap().put(JACTION_SELECT_NEXT, goNextAction);
 		}
 
 		return goNextAction;
 	}
-	public javax.swing.Action getSelectPreviousAction() {
+	private javax.swing.Action getSelectPreviousAction() {
 		if (goPreviousAction == null) {
-			goPreviousAction = new AbstractAction("Select previous") {
+			goPreviousAction = new AbstractAction(Messages.getString("ActionTable.Prev")) { //$NON-NLS-1$
 
 				private static final long serialVersionUID = 1L;
 
+				@Override
 				public void actionPerformed(ActionEvent e) {
-					int i= getSelectedRow();
-					if (i==-1 || --i<0) {
-						i=getRowCount()-1;
+					int[] i= getSelectedRows();
+					int sel;
+					if (i== null || i.length==0 || i[0]==-1 || i[0]-1<0) {
+						sel=getRowCount()-1;
+					} else {
+						sel= i[0]-1;
 					}
-					getSelectionModel().setSelectionInterval(i, i);
+					getSelectionModel().setSelectionInterval(sel, sel);
 				}
 			};
-			goPreviousAction.putValue(javax.swing.Action.SHORT_DESCRIPTION, "Select previous action in list.");
+			goPreviousAction.putValue(javax.swing.Action.SHORT_DESCRIPTION, Messages.getString("ActionTable.Prev.desc")); //$NON-NLS-1$
 			goPreviousAction.putValue(javax.swing.Action.LARGE_ICON_KEY, ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_previous));
 			goPreviousAction.putValue(javax.swing.Action.SMALL_ICON, ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_previous));
-			getActionMap().put(SELECT_PREVIOUS, goPreviousAction);
+			getActionMap().put(JACTION_SELECT_PREVIOUS, goPreviousAction);
 		}
 
 		return goPreviousAction;
 	}
-	public javax.swing.Action getMoveDownAction() {
+	private javax.swing.Action getMoveDownAction() {
 		if (moveDownAction == null) {
 			moveDownAction = new AbstractAction(Messages.getString("ActionTable.MoveDown")) { //$NON-NLS-1$
 				private static final long serialVersionUID = 4715532030674163250L;
 
+				@Override
 				public void actionPerformed(ActionEvent e) {
 					if (moveEnabled) {
 						if (getSelectedAction()!=null) {
-							getRowSorter().setSortKeys(EMPTY_KEYS);
-							getFolder().moveDown(getSelectedAction());
-							enableMoveActions();
+							if (!rowSorter.isUnsorted()) {
+								saveActionOrder();
+								getRowSorter().setSortKeys(EMPTY_KEYS);
+							} else {
+								getRowSorter().setSortKeys(EMPTY_KEYS);
+								Action a= getLastSelectedAction();
+								getFolder().moveDown(a);
+								setSelectedAction(a);
+								enableMoveActions();
+							}
 						}
 					}
 				}
 			};
-			moveDownAction.putValue(javax.swing.Action.SHORT_DESCRIPTION, "Move current action one place down.");
+			moveDownAction.putValue(javax.swing.Action.SHORT_DESCRIPTION, Messages.getString("ActionTable.MoveDown.desc")); //$NON-NLS-1$
 			moveDownAction.putValue(javax.swing.Action.LARGE_ICON_KEY, ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_down));
 			moveDownAction.putValue(javax.swing.Action.SMALL_ICON, ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_down));
 			moveDownAction.putValue(javax.swing.Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, InputEvent.CTRL_DOWN_MASK));
-			getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, InputEvent.CTRL_DOWN_MASK), MOVE_DOWN);
-			getActionMap().put(MOVE_DOWN, moveDownAction);
+			getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, InputEvent.CTRL_DOWN_MASK), JACTION_MOVE_DOWN);
+			getActionMap().put(JACTION_MOVE_DOWN, moveDownAction);
 			enableMoveActions();
 		}
 
@@ -1591,7 +2028,8 @@ public class ActionTable extends JTable {
 	}
 	
 	public void setEngine(GTDFreeEngine e) {
-		engine=e;;
+		engine=e;
+		transferHandler.setModel(e.getGTDModel());
 
 		if (projectEditor!=null) {
 			projectEditor.setGTDModel(engine.getGTDModel());
@@ -1640,6 +2078,62 @@ public class ActionTable extends JTable {
 	public void setShowPriorityColumn(boolean showPriorityColumn) {
 		this.showPriorityColumn = showPriorityColumn;
 		rebuildColumns();
+	}
+
+	/**
+	 * @param singleSelectionMode the singleSelectionMode to set
+	 */
+	public void setSingleSelectionMode(boolean singleSelectionMode) {
+		this.singleSelectionMode = singleSelectionMode;
+		if (singleSelectionMode) {
+			setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		} else {
+			setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+		}
+	}
+
+	/**
+	 * @return the singleSelectionMode
+	 */
+	public boolean isSingleSelectionMode() {
+		return singleSelectionMode;
+	}
+	
+	public boolean containsAction(Action a) {
+		return model.indexOf(a)>-1;
+	}
+
+	public boolean isShowClosedFolders() {
+		return showClosedFolders;
+	}
+	
+	public void setShowClosedFolders(boolean showClosedFolders) {
+		this.showClosedFolders = showClosedFolders;
+		if (projectEditor!=null) {
+			projectEditor.setShowClosedFolders(showClosedFolders);
+		}
+	}
+	
+	public void saveActionOrder() {
+		if (rowSorter.isUnsorted()) {
+			return;
+		}
+		
+		Action[] order= new Action[model.getRowCount()];
+		
+		for (int i = 0; i < order.length; i++) {
+			order[i]= model.getAction(convertRowIndexToModel(i));
+		}
+		
+		folder.reorder(order);	
+	}
+	
+	public void addSwingActions(ActionMap actions) {
+		for (Object key : actions.allKeys()) {
+			if (getActionMap().get(key)==null) {
+				getActionMap().put(key, actions.get(key));
+			}
+		}
 	}
 
 }

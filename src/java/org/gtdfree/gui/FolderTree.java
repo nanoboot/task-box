@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -22,6 +22,7 @@ package org.gtdfree.gui;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Font;
+import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
@@ -29,9 +30,18 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
+import java.util.EventObject;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 
+import javax.swing.AbstractAction;
+import javax.swing.Icon;
+import javax.swing.JPopupMenu;
+import javax.swing.JSeparator;
 import javax.swing.JTree;
+import javax.swing.event.TreeExpansionEvent;
+import javax.swing.event.TreeExpansionListener;
 import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -42,13 +52,19 @@ import javax.swing.tree.MutableTreeNode;
 import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
 
+import org.apache.log4j.Logger;
+import org.gtdfree.ApplicationHelper;
 import org.gtdfree.GTDFreeEngine;
+import org.gtdfree.Messages;
 import org.gtdfree.model.Action;
 import org.gtdfree.model.ActionEvent;
 import org.gtdfree.model.Folder;
 import org.gtdfree.model.FolderEvent;
 import org.gtdfree.model.GTDModel;
 import org.gtdfree.model.GTDModelListener;
+import org.gtdfree.model.Project;
+import org.gtdfree.model.Action.Resolution;
+import org.gtdfree.model.Folder.FolderPreset;
 import org.gtdfree.model.Folder.FolderType;
 
 
@@ -60,10 +76,215 @@ public class FolderTree extends JTree {
 	
 	private static final long serialVersionUID = 1L;
 
-	class SortedTreeNode extends DefaultMutableTreeNode implements Comparator<DefaultMutableTreeNode> {
+	private final class FolderTreeCellEditor extends DefaultTreeCellEditor {
+		private FolderTreeCellEditor(JTree tree,
+				DefaultTreeCellRenderer renderer) {
+			super(tree, renderer);
+		}
+
+		@Override
+		public Component getTreeCellEditorComponent(JTree tree, Object value, boolean isSelected, boolean expanded, boolean leaf, int row) {
+			if (value instanceof DefaultMutableTreeNode && ((DefaultMutableTreeNode)value).getUserObject() instanceof Folder) {
+				value= ((Folder)((DefaultMutableTreeNode)value).getUserObject()).getName();
+			}
+			return super.getTreeCellEditorComponent(tree, value, isSelected, expanded,
+					leaf, row);
+		}
+		
+		@Override
+		public boolean shouldSelectCell(EventObject event) {
+			return true;
+		}
+		@Override
+		public boolean isCellEditable(EventObject event) {
+			Boolean b= super.isCellEditable(event); 
+			if (event instanceof MouseEvent) {
+				MouseEvent m= (MouseEvent)event;
+				return m.getClickCount()>1;
+			}
+			return b;
+		}
+		
+	}
+
+	private final class FolderTreeCellRenderer extends DefaultTreeCellRenderer {
+		private static final long serialVersionUID = 1L;
+
+		public FolderTreeCellRenderer() {
+			/*addMouseListener(new MouseAdapter() {
+				private void popup(MouseEvent e) {
+					if (e.isPopupTrigger()) {
+						TreePath t= getClosestPathForLocation(e.getPoint().x, e.getPoint().y);
+						showPopup(t,e.getPoint());
+					}
+				}
+				@Override
+				public void mousePressed(MouseEvent e) {
+					if (getPathForLocation(e.getPoint().x, e.getPoint().y)!=null || e.getPoint().x<30) {
+						return;
+					}
+					TreePath t= getClosestPathForLocation(e.getPoint().x, e.getPoint().y);
+					setSelectionPath(t);
+					popup(e);
+				}
+				@Override
+				public void mouseReleased(MouseEvent e) {
+					if (getPathForLocation(e.getPoint().x, e.getPoint().y)!=null || e.getPoint().x<30) {
+						return;
+					}
+					TreePath t= getClosestPathForLocation(e.getPoint().x, e.getPoint().y);
+					setSelectionPath(t);
+					popup(e);
+				}
+			});*/
+		}
+		
+		@Override
+		public Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel, boolean expanded, boolean leaf, int row, boolean hasFocus) {
+			DefaultMutableTreeNode node= (DefaultMutableTreeNode)value;
+			super.getTreeCellRendererComponent(tree, "", sel, expanded, leaf, //$NON-NLS-1$
+					row, hasFocus);
+			
+			Font font= FolderTree.this.getFont();
+			
+			Folder f=null;
+			if (node.getUserObject() instanceof Folder) {
+				f = (Folder)node.getUserObject();
+				StringBuilder sb= new StringBuilder(32);
+				sb.append(f.getName());
+				sb.append(' ');
+				sb.append('(');
+				if (f.getType() == FolderType.BUILDIN_RESOLVED || f.getType() == FolderType.BUILDIN_DELETED) {
+					sb.append(f.size());
+				} else {
+					sb.append(f.getOpenCount());
+				}
+				sb.append(')');
+				value= sb.toString();
+			}
+			if (f != null) {
+				if (f.isClosed()) {
+					setForeground(Color.LIGHT_GRAY);
+				}
+			}
+
+			String s= String.valueOf(value);
+			setText(s);
+			setToolTipText(s);
+
+			if (node.getLevel()==1) {
+				super.setFont(font.deriveFont(Font.BOLD).deriveFont(font.getSize()+2f));
+				//super.setPreferredSize(null);
+			} else {
+				//super.setPreferredSize(null);
+				if (f != null && f.getOpenCount()>0) {
+					super.setFont(font.deriveFont(Font.BOLD));
+				} else {
+					super.setFont(font);
+				}
+				//setBackground(FolderTree.this.getBackground());
+			}
+			
+			return this;
+		}
+
+		@Override
+		public void setFont(Font font) {
+			// ignore
+		}
+		@Override
+		public Icon getIcon() {
+			return null;
+		}
+		@Override
+		public void setIcon(Icon icon) {
+			// no
+		}
+	}
+
+	private final class FolderTreeTransferHandler extends ActionTransferHandler {
+		private static final long serialVersionUID = 0L;
+
+		@Override
+		protected boolean importActions(Action[] a, Folder source, int[] indexes, TransferSupport support) {
+			
+			try {
+				TreePath tp= getClosestPathForLocation(support.getDropLocation().getDropPoint().x,support.getDropLocation().getDropPoint().y);
+				DefaultMutableTreeNode n= (DefaultMutableTreeNode)tp.getLastPathComponent();
+				if (n!=null && n.getUserObject() instanceof Folder && a!=null) {
+					Folder target= (Folder)n.getUserObject();
+					if (target.isProject()) {
+						for (int i = 0; i < a.length; i++) {
+							a[i].setProject(target.getId());
+						}
+					} else {
+						gtdModel.moveActions(a, target);
+					}
+					setSelectedFolder(source,indexes[indexes.length-1]+1-indexes.length);
+					lastDroppedActionIndex=-1;
+					return true;
+				}
+			} catch (Throwable t) {
+				Logger.getLogger(this.getClass()).debug("Internal error.", t); //$NON-NLS-1$
+			}
+			setSelectedFolder(source,-1);
+			return false;
+		}
+
+		@Override
+		protected Action[] exportActions() {
+			return null;
+		}
+		@Override
+		protected Folder exportSourceFolder() {
+			return null;
+		}
+		@Override
+		protected int[] exportIndexes() {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		@Override
+		public boolean canImport(TransferSupport support) {
+			TreePath tp= getClosestPathForLocation(support.getDropLocation().getDropPoint().x,support.getDropLocation().getDropPoint().y);
+			DefaultMutableTreeNode n= (DefaultMutableTreeNode)tp.getLastPathComponent();
+			if (n!=null && n.getUserObject() instanceof Folder && !((Folder)n.getUserObject()).isMeta() && ((Folder)n.getUserObject()).getType()!=FolderType.INBUCKET) {
+				return super.canImport(support);
+			} 
+			if (n!=null && n.getUserObject() instanceof Project) {
+				return super.canImport(support);
+			} 
+			/*if (n==references || n==actions) {
+				expandPath(new TreePath(n.getPath()));
+			}*/
+			return false;
+		}
+	}
+	
+	final class FolderTreeNode extends DefaultMutableTreeNode {
+		private static final long serialVersionUID = 1L;
+		private Folder folder;
+		
+		public FolderTreeNode(Folder f) {
+			super(f,false);
+			folder=f;
+		}
+		@Override
+		public void setUserObject(Object userObject) {
+			if (userObject instanceof String) {
+				folder.rename((String)userObject);
+			} else if (userObject instanceof Folder) {
+				folder=(Folder)userObject;
+				super.setUserObject(userObject);
+			}
+		}
+	}
+
+	final class SortedTreeNode extends DefaultMutableTreeNode implements Comparator<DefaultMutableTreeNode> {
 		
 		
-		private static final long serialVersionUID = 4899968443878756400L;
+		private static final long serialVersionUID = 1L;
 		public SortedTreeNode() {
 			super();
 		}
@@ -115,8 +336,23 @@ public class FolderTree extends JTree {
 	private SortedTreeNode someday;
 	private Folder selectedFolder;
 	private boolean defaultFoldersVisible=true;
-	private boolean emptyFoldersVisible=true;
 	private boolean showClosedFolders=false;
+	private ActionTransferHandler transferHandler;
+	private boolean showEmptyFolders=true;
+	private JPopupMenu popupMenu;
+	private AbstractAction deleteAllAction;
+	private AbstractAction unqueueAllAction;
+	private AbstractAction queueAllAction;
+	private AbstractAction resolveAllAction;
+	private AbstractAction renameListAction;
+	private AbstractAction renameProjectAction;
+	private AbstractAction addProjectAction;
+	private AbstractAction addListAction;
+	private AbstractAction addReferenceListAction;
+	private AbstractAction addSomedayListAction;
+	private AbstractAction closeListAction;
+	private AbstractAction closeProjectAction;
+	private int lastDroppedActionIndex=-1;
 
 	/**
 	 * @return the selectedFolder
@@ -137,14 +373,15 @@ public class FolderTree extends JTree {
 		
 		setRootVisible(false);
 		setExpandsSelectedPaths(true);
-		setToggleClickCount(1);
-		setEditable(false);
+		setToggleClickCount(0);
+		setEditable(true);
+		setShowsRootHandles(true);
 		
-		actions= new SortedTreeNode("Actions",true);
-		meta= new SortedTreeNode("Default Lists",true);
-		references= new SortedTreeNode("References",true);
-		someday= new SortedTreeNode("Someday/Maybe",true);
-		projects= new SortedTreeNode("Projects",true);
+		actions= new SortedTreeNode(Messages.getString("FolderTree.Act"),true); //$NON-NLS-1$
+		meta= new SortedTreeNode(Messages.getString("FolderTree.Def"),true); //$NON-NLS-1$
+		references= new SortedTreeNode(Messages.getString("FolderTree.Ref"),true); //$NON-NLS-1$
+		someday= new SortedTreeNode(Messages.getString("FolderTree.Some"),true); //$NON-NLS-1$
+		projects= new SortedTreeNode(Messages.getString("FolderTree.Proj"),true); //$NON-NLS-1$
 		
 		addTreeSelectionListener(new TreeSelectionListener() {
 		
@@ -152,163 +389,389 @@ public class FolderTree extends JTree {
 				Folder old= selectedFolder;
 				selectedFolder= null;
 				if (e.getNewLeadSelectionPath()!=null) {
-					Object o= ((DefaultMutableTreeNode)e.getNewLeadSelectionPath().getLastPathComponent()).getUserObject();
-					if (o instanceof Folder) {
-						selectedFolder= (Folder)o;
-					}
+					selectedFolder= treePath2Folder(e.getNewLeadSelectionPath());
 				}
-				firePropertyChange("selectedFolder", old, selectedFolder);
+				firePropertyChange("selectedFolder", old, selectedFolder); //$NON-NLS-1$
 			}
 		
 		});
 		
-		setCellRenderer(new DefaultTreeCellRenderer() {
-			private static final long serialVersionUID = 1L;
-
-			@Override
-			public Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel, boolean expanded, boolean leaf, int row, boolean hasFocus) {
-				DefaultMutableTreeNode node= (DefaultMutableTreeNode)value;
-				super.getTreeCellRendererComponent(tree, "", sel, expanded, leaf,
-						row, hasFocus);
-				
-				Font font= FolderTree.this.getFont();
-				
-				if (node.getLevel()==1) {
-					super.setFont(font.deriveFont(Font.BOLD));
-					setBackground(Color.LIGHT_GRAY);
-				} else {
-					super.setFont(font);
-					//setBackground(FolderTree.this.getBackground());
-				}
-				
-				Folder f=null;
-				if (node.getUserObject() instanceof Folder) {
-					f = (Folder)node.getUserObject();
-					StringBuilder sb= new StringBuilder(32);
-					sb.append(f.getName());
-					sb.append(' ');
-					sb.append('(');
-					if (f.getType() == FolderType.BUILDIN_RESOLVED || f.getType() == FolderType.BUILDIN_DELETED) {
-						sb.append(f.size());
-					} else {
-						sb.append(f.getOpenCount());
-					}
-					sb.append(')');
-					value= sb.toString();
-				}
-				if (f != null) {
-					if (f.isClosed()) {
-						setForeground(Color.LIGHT_GRAY);
-					}
-				}
-				
-				setText(String.valueOf(value));
-				return this;
-			}
-			@Override
-			public void setFont(Font font) {
-				// ignore
-			}
-		});
-		setCellEditor(new DefaultTreeCellEditor(this,(DefaultTreeCellRenderer)getCellRenderer()){@Override
-		public Component getTreeCellEditorComponent(JTree tree, Object value, boolean isSelected, boolean expanded, boolean leaf, int row) {
-			if (value instanceof DefaultMutableTreeNode && ((DefaultMutableTreeNode)value).getUserObject() instanceof Folder) {
-				value= ((Folder)((DefaultMutableTreeNode)value).getUserObject()).getName();
-			}
-			return super.getTreeCellEditorComponent(tree, value, isSelected, expanded,
-					leaf, row);
-		}});
+		setCellRenderer(new FolderTreeCellRenderer());
 		
-		setTransferHandler(new ActionTransferHandler() {
-			
-			private static final long serialVersionUID = 0L;
-
-			@Override
-			protected boolean importAction(int id, TransferSupport support) {
-				try {
-					Action a= gtdModel.getAction(id);
-					//System.out.println(support.getDropLocation().getDropPoint());
-					TreePath tp= getClosestPathForLocation(support.getDropLocation().getDropPoint().x,support.getDropLocation().getDropPoint().y);
-					//System.out.println(tp);
-					//System.out.println(tp.getLastPathComponent());
-					DefaultMutableTreeNode n= (DefaultMutableTreeNode)tp.getLastPathComponent();
-					if (n!=null && n.getUserObject() instanceof Folder && a!=null) {
-						Folder target= (Folder)n.getUserObject();
-						gtdModel.moveAction(a, target);
-						return true;
-					}
-				} catch (Throwable t) {
-					t.printStackTrace();
-				}
-				return false;
-			}
-
-			@Override
-			protected Integer exportAction() {
-				return null;
-			}
-			
-			@Override
-			public boolean canImport(TransferSupport support) {
-				TreePath tp= getClosestPathForLocation(support.getDropLocation().getDropPoint().x,support.getDropLocation().getDropPoint().y);
-				DefaultMutableTreeNode n= (DefaultMutableTreeNode)tp.getLastPathComponent();
-				if (n!=null && n.getUserObject() instanceof Folder && !((Folder)n.getUserObject()).isMeta() && ((Folder)n.getUserObject()).getType()!=FolderType.INBUCKET) {
-					return super.canImport(support);
-				} 
-				/*if (n==references || n==actions) {
-					expandPath(new TreePath(n.getPath()));
-				}*/
-				return false;
-			}
-			
-		});
+		setCellEditor(new FolderTreeCellEditor(this, (DefaultTreeCellRenderer)getCellRenderer()));
 		
-		/*addTreeExpansionListener(new TreeExpansionListener() {
-			boolean expanding=false;
-			public void treeExpanded(TreeExpansionEvent event) {
-				TreePath ex= event.getPath();
-				int i=0;
-				while (i<getRowCount()) {
-					if (getPathForRow(i)!=ex) {
-						collapseRow(i);
-					}
-					i++;
-				}
-				DefaultMutableTreeNode n= (DefaultMutableTreeNode)ex.getLastPathComponent();
-				if (n.getChildCount()>0 && !expanding) {
-					expanding=true;
-					setSelectionPath(new TreePath(((DefaultMutableTreeNode)n.getFirstChild()).getPath()));
-					expanding=false;
-				}
-			}
-		
-			public void treeCollapsed(TreeExpansionEvent event) {
-				//
-		
-			}
-		
-		});*/
+		setTransferHandler(transferHandler= new FolderTreeTransferHandler());
 		
 		addMouseListener(new MouseAdapter() {
+			private void popup(MouseEvent e) {
+				if (e.isPopupTrigger()) {
+					TreePath t= getClosestPathForLocation(e.getPoint().x, e.getPoint().y);
+					showPopup(t,e.getPoint());
+				}
+			}
 			@Override
 			public void mousePressed(MouseEvent e) {
-				if (getPathForLocation(e.getPoint().x, e.getPoint().y)!=null || e.getPoint().x<30) {
+				/*if (getPathForLocation(e.getPoint().x, e.getPoint().y)!=null || e.getPoint().x<30) {
 					return;
-				}
-				TreePath t= getClosestPathForLocation(e.getPoint().x, e.getPoint().y);
-				/*if (getExpandedDescendants(t)!=null) {
-					collapsePath(t);
-				} else {
-					expandPath(t);
 				}*/
+				TreePath t= getClosestPathForLocation(e.getPoint().x, e.getPoint().y);
 				setSelectionPath(t);
+				popup(e);
+			}
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				/*if (getPathForLocation(e.getPoint().x, e.getPoint().y)!=null || e.getPoint().x<30) {
+					return;
+				}*/
+				TreePath t= getClosestPathForLocation(e.getPoint().x, e.getPoint().y);
+				setSelectionPath(t);
+				popup(e);
+			}
+		});
+		
+		addTreeExpansionListener(new TreeExpansionListener() {
+			
+			@SuppressWarnings("unchecked")
+			@Override
+			public void treeExpanded(TreeExpansionEvent event) {
+				TreePath tp= event.getPath();
+				
+				Enumeration<DefaultMutableTreeNode> en= ((DefaultMutableTreeNode)tp.getLastPathComponent()).children();
+				
+				while(en.hasMoreElements()) {
+					DefaultMutableTreeNode n = en.nextElement();
+					Object o= n.getUserObject();
+					if (o instanceof Folder) {
+						checkIfShow((Folder)o);
+					}
+				}
+			}
+			
+			@Override
+			public void treeCollapsed(TreeExpansionEvent event) {
+				//
 			}
 		});
 		
 		rebuildTree();
+		
+		
 	}
 	
+	public Folder treePath2Folder(TreePath tp) {
+		Object o= ((DefaultMutableTreeNode)tp.getLastPathComponent()).getUserObject();
+		if (o instanceof Folder) {
+			return (Folder)o;
+		}
+		return null;
+	}
+
+	protected void showPopup(TreePath t, Point point) {
+		if (popupMenu == null) {
+			popupMenu = new JPopupMenu();
+		}
+		
+		popupMenu.removeAll();
+		
+		Folder f= treePath2Folder(t);
+		
+		if (f!=null) {
+			if (f.isProject()) {
+				popupMenu.add(getRenameProjectAction());
+				popupMenu.add(getAddProjectAction());
+				popupMenu.add(getCloseProjectAction());
+				getCloseProjectAction().setEnabled(f.getOpenCount()==0);
+				popupMenu.add(new JSeparator());
+			} else if (!f.isDefault()) {
+				popupMenu.add(getRenameListAction());
+				if (f.isReference()) {
+					popupMenu.add(getAddReferenceListAction());
+				} else if (f.isSomeday()) {
+					popupMenu.add(getAddSomedayListAction());
+				} else {
+					popupMenu.add(getAddListAction());
+				}
+				popupMenu.add(getCloseListAction());
+				getCloseListAction().setEnabled(f.getOpenCount()==0);
+				popupMenu.add(new JSeparator());
+			}
+			if (!f.isQueue() && !f.isInBucket() && f.getType()!=FolderType.BUILDIN_RESOLVED && f.getType()!=FolderType.BUILDIN_DELETED) {
+				popupMenu.add(getQueueAllAction());
+			}
+			if (!f.isInBucket() && f.getType()!=FolderType.BUILDIN_RESOLVED && f.getType()!=FolderType.BUILDIN_DELETED) {
+				popupMenu.add(getUnqueueAllAction());
+			}
+			if (f.getType()!=FolderType.BUILDIN_RESOLVED && f.getType()!=FolderType.BUILDIN_DELETED) {
+				popupMenu.add(getResolveAllAction());
+			}
+			if (f.getType()!=FolderType.BUILDIN_DELETED) {
+				popupMenu.add(getDeleteAllAction());
+			}
+		} else if (t.getPathCount()>0) {
+			Object o= t.getPathComponent(1);
+			
+			if (o==actions) {
+				popupMenu.add(getAddListAction());
+			} else if (o==someday) {
+				popupMenu.add(getAddSomedayListAction());
+			} else if (o==references) {
+				popupMenu.add(getAddReferenceListAction());
+			} else if (o==projects) {
+				popupMenu.add(getAddProjectAction());
+			}	
+		}
+		popupMenu.show(this, point.x, point.y);
+	}
+
+	private javax.swing.Action getAddProjectAction() {
+		if (addProjectAction == null) {
+			addProjectAction = new AbstractAction(Messages.getString("FolderTree.AddProject"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_add)) { //$NON-NLS-1$
+				
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					Folder f= getGTDModel().createFolder("", FolderType.PROJECT); //$NON-NLS-1$
+					for (int i = 0; i < getRowCount(); i++) {
+						TreePath tp= getPathForRow(i);
+						if (tp != null && tp.getLastPathComponent()==projects ) {
+							expandRow(i);
+						} else if (tp != null && tp.getLastPathComponent() instanceof FolderTreeNode && ((FolderTreeNode)tp.getLastPathComponent()).getUserObject()==f ) {
+							startEditingAtPath(tp);
+							return;
+						}
+					}
+				}
+			};
+			
+		}
+
+		return addProjectAction;
+	}
+
+	private javax.swing.Action getAddListAction() {
+		if (addListAction == null) {
+			addListAction = new AbstractAction(Messages.getString("FolderTree.AddList"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_add)) { //$NON-NLS-1$
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					Folder f= getGTDModel().createFolder("", FolderType.ACTION); //$NON-NLS-1$
+					for (int i = 0; i < getRowCount(); i++) {
+						TreePath tp= getPathForRow(i);
+						if (tp != null && tp.getLastPathComponent()==actions ) {
+							expandRow(i);
+						} else if (tp != null && tp.getLastPathComponent() instanceof FolderTreeNode && ((FolderTreeNode)tp.getLastPathComponent()).getUserObject()==f ) {
+							startEditingAtPath(tp);
+							return;
+						}
+					}
+				}
+			};
+			
+		}
+
+		return addListAction;
+	}
 	
+	private javax.swing.Action getAddReferenceListAction() {
+		if (addReferenceListAction == null) {
+			addReferenceListAction = new AbstractAction(Messages.getString("FolderTree.AddRefList"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_add)) { //$NON-NLS-1$
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					Folder f= getGTDModel().createFolder("", FolderType.REFERENCE); //$NON-NLS-1$
+					for (int i = 0; i < getRowCount(); i++) {
+						TreePath tp= getPathForRow(i);
+						if (tp != null && tp.getLastPathComponent()==references ) {
+							expandRow(i);
+						} else if (tp != null && tp.getLastPathComponent() instanceof FolderTreeNode && ((FolderTreeNode)tp.getLastPathComponent()).getUserObject()==f ) {
+							startEditingAtPath(tp);
+							return;
+						}
+					}
+				}
+			};
+			
+		}
+
+		return addReferenceListAction;
+	}
+
+	private javax.swing.Action getAddSomedayListAction() {
+		if (addSomedayListAction == null) {
+			addSomedayListAction = new AbstractAction(Messages.getString("FolderTree.AddSomeList"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_add)) { //$NON-NLS-1$
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					Folder f= getGTDModel().createFolder("", FolderType.SOMEDAY); //$NON-NLS-1$
+					for (int i = 0; i < getRowCount(); i++) {
+						TreePath tp= getPathForRow(i);
+						if (tp != null && tp.getLastPathComponent()==someday ) {
+							expandRow(i);
+						} else if (tp != null && tp.getLastPathComponent() instanceof FolderTreeNode && ((FolderTreeNode)tp.getLastPathComponent()).getUserObject()==f ) {
+							startEditingAtPath(tp);
+							return;
+						}
+					}
+				}
+			};
+			
+		}
+
+		return addSomedayListAction;
+	}
+
+	private javax.swing.Action getResolveAllAction() {
+		if (resolveAllAction == null) {
+			resolveAllAction = new AbstractAction(Messages.getString("FolderTree.ResolveActions"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_resolve)) { //$NON-NLS-1$
+				
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					Iterator<Action> i= getSelectedFolder().iterator(FolderPreset.OPEN);
+					while (i.hasNext()) {
+						Action a = i.next();
+						a.setResolution(Resolution.RESOLVED);
+					}
+				}
+			};
+		}
+
+		return resolveAllAction;
+	}
+
+	private javax.swing.Action getUnqueueAllAction() {
+		if (unqueueAllAction == null) {
+			unqueueAllAction = new AbstractAction(Messages.getString("FolderTree.UnqueueActions"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_queue_off)) { //$NON-NLS-1$
+				
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					Iterator<Action> i= getSelectedFolder().iterator(FolderPreset.OPEN);
+					while (i.hasNext()) {
+						Action a = i.next();
+						a.setQueued(false);
+					}
+				}
+			};
+		}
+
+		return unqueueAllAction;
+	}
+
+	private javax.swing.Action getQueueAllAction() {
+		if (queueAllAction == null) {
+			queueAllAction = new AbstractAction(Messages.getString("FolderTree.QueueActions"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_queue_on)) { //$NON-NLS-1$
+				
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					Iterator<Action> i= getSelectedFolder().iterator(FolderPreset.OPEN);
+					while (i.hasNext()) {
+						Action a = i.next();
+						a.setQueued(true);
+					}
+				}
+			};
+		}
+
+		return queueAllAction;
+	}
+
+	private javax.swing.Action getRenameListAction() {
+		if (renameListAction == null) {
+			renameListAction = new AbstractAction(Messages.getString("FolderTree.RenameList"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_rename)) { //$NON-NLS-1$
+				
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					startEditingAtPath(getSelectionPath());
+				}
+			};
+		}
+
+		return renameListAction;
+	}
+
+	private javax.swing.Action getCloseListAction() {
+		if (closeListAction == null) {
+			closeListAction = new AbstractAction(Messages.getString("FolderTree.CloseList"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_resolve)) { //$NON-NLS-1$
+				
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					if (getSelectedFolder().getOpenCount()==0) {
+						getSelectedFolder().setClosed(true);
+					}
+				}
+			};
+		}
+
+		return closeListAction;
+	}
+
+	private javax.swing.Action getCloseProjectAction() {
+		if (closeProjectAction == null) {
+			closeProjectAction = new AbstractAction(Messages.getString("FolderTree.CloseProject"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_resolve)) { //$NON-NLS-1$
+				
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					if (getSelectedFolder().getOpenCount()==0) {
+						getSelectedFolder().setClosed(true);
+					}
+				}
+			};
+		}
+
+		return closeProjectAction;
+	}
+
+	private javax.swing.Action getRenameProjectAction() {
+		if (renameProjectAction == null) {
+			renameProjectAction = new AbstractAction(Messages.getString("FolderTree.RenameProject"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_rename)) { //$NON-NLS-1$
+				
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					startEditingAtPath(getSelectionPath());
+				}
+			};
+		}
+
+		return renameProjectAction;
+	}
+
+	private javax.swing.Action getDeleteAllAction() {
+		if (deleteAllAction == null) {
+			deleteAllAction = new AbstractAction(Messages.getString("FolderTree.DeleteActions"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_delete)) { //$NON-NLS-1$
+				
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					Iterator<Action> i= getSelectedFolder().iterator(FolderPreset.ALL);
+					while (i.hasNext()) {
+						Action a = i.next();
+						a.setResolution(Resolution.DELETED);
+					}
+				}
+			};
+		}
+
+		return deleteAllAction;
+	}
+
 
 	/**
 	 * @return the gtdModel
@@ -322,6 +785,7 @@ public class FolderTree extends JTree {
 	 */
 	private void setGTDModel(GTDModel gtdModel) {
 		this.gtdModel = gtdModel;
+		transferHandler.setModel(gtdModel);
 		gtdModel.addGTDModelListener(new GTDModelListener() {
 		
 			public void elementRemoved(FolderEvent note) {
@@ -336,11 +800,24 @@ public class FolderTree extends JTree {
 				}
 				model.nodesChanged(meta, i);
 				repaint();
+				
+				if (note.getProperty()==Action.RESOLUTION_PROPERTY_NAME) {
+					HashSet<Integer> checked= new HashSet<Integer>();
+					for (Action a : note.getActions()) {
+						Folder f= a.getParent();
+						if (!checked.contains(f.getId())) {
+							checked.add(f.getId());
+							checkIfShow(f);
+						}
+					}
+				}
 			}
 		
 			public void elementAdded(FolderEvent note) {
-				model.nodeChanged(folderToNode(note.getFolder()));
-				repaint();
+				//if (!checkIfShow(note.getFolder())) {
+					model.nodeChanged(folderToNode(note.getFolder()));
+					repaint();
+				//}
 			}
 		
 			public void folderRemoved(Folder folder) {
@@ -348,17 +825,17 @@ public class FolderTree extends JTree {
 			}
 		
 			public void folderModified(FolderEvent f) {
-				if (f.getProperty()=="closed") {
-					if (f.getFolder().isClosed() && !showClosedFolders) {
-						removeFromTree(f.getFolder(), true);
-					} else if (!f.getFolder().isClosed() && folderToNode(f.getFolder())==null) {
-						addToTree(f.getFolder(), true);
-					} 
-				} else if (f.getProperty()=="name") {
+				if (f.getProperty()=="closed") { //$NON-NLS-1$
+					checkIfShow(f.getFolder());
+				} else if (f.getProperty()=="name") { //$NON-NLS-1$
+					Folder sel= getSelectedFolder();
 					SortedTreeNode p= folderToParentNode(f.getFolder());
 					if (p!=null) {
 						p.sort();
 						model.nodeStructureChanged(p);
+					}
+					if (sel!=null) {
+						setSelectedFolder(sel,-1);
 					}
 				} else {
 					DefaultMutableTreeNode p= folderToNode(f.getFolder());
@@ -441,7 +918,7 @@ public class FolderTree extends JTree {
 		
 		if (gtdModel!=null) {
 			for (Folder f : gtdModel) {
-				if (showClosedFolders || !f.isClosed()) {
+				if (canShowFolder(f)) {
 					addToTree(f, false);
 				}
 			}
@@ -459,25 +936,22 @@ public class FolderTree extends JTree {
 		}
 	}
 	private DefaultMutableTreeNode addToTree(Folder f, boolean notify) {
-		if (!emptyFoldersVisible && f.size()==0) {
-			return null;
-		}
 		TreeNode n=null;
 		DefaultMutableTreeNode r=null;
-		if (f.getType()==FolderType.ACTION) {
-			actions.add(r=new DefaultMutableTreeNode(f,false));
+		if (f.isAction()) {
+			actions.add(r=new FolderTreeNode(f));
 			n=actions;
-		} else if (f.getType()==FolderType.REFERENCE) {
-			references.add(r=new DefaultMutableTreeNode(f,false));
+		} else if (f.isReference()) {
+			references.add(r=new FolderTreeNode(f));
 			n=references;
-		} else if (f.getType()==FolderType.SOMEDAY) {
-			someday.add(r=new DefaultMutableTreeNode(f,false));
+		} else if (f.isSomeday()) {
+			someday.add(r=new FolderTreeNode(f));
 			n=someday;
-		} else if (defaultFoldersVisible && engine.getStateMachine().getDefaultTreeBranch(f.getType())) {
-			meta.add(r=new DefaultMutableTreeNode(f,false));
+		} else if (defaultFoldersVisible && f.isDefault()) {
+			meta.add(r=new FolderTreeNode(f));
 			n=meta;
-		} else if (defaultFoldersVisible && f.getType()==FolderType.PROJECT) {
-			projects.add(r=new DefaultMutableTreeNode(f,false));
+		} else if (defaultFoldersVisible && f.isProject()) {
+			projects.add(r=new FolderTreeNode(f));
 			n=projects;
 		}
 		if (notify && n!=null) {
@@ -499,6 +973,35 @@ public class FolderTree extends JTree {
 			return dn;
 		}
 		return null;
+	}
+	
+	/**
+	 * Checks if folder could be shown in tree
+	 * @param f
+	 * @return <code>true</code> if folder could be shown in tree
+	 */
+	private boolean canShowFolder(Folder f) {
+		return f.isDefault() || (showClosedFolders && f.isClosed()) ||
+		(!f.isClosed() && (showEmptyFolders || f.getOpenCount()>0));
+	}
+	
+	/**
+	 * Checks if folder could be shown or not and adds/removes if necessary.
+	 * @param f
+	 * @return <code>true</code> if folder was added or removed, otherwise false
+	 */
+	private boolean checkIfShow(Folder f) {
+		DefaultMutableTreeNode node= folderToNode(f);
+		boolean show= canShowFolder(f);
+		if (show && node==null) {
+			addToTree(f, true);
+			return true;
+		} 
+		if (!show && node!=null) {
+			removeFromTree(f, true);
+			return true;
+		}
+		return false;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -583,21 +1086,6 @@ public class FolderTree extends JTree {
 	}
 
 	/**
-	 * @return the emptyFoldersVisible
-	 */
-	public boolean isEmptyFoldersVisible() {
-		return emptyFoldersVisible;
-	}
-
-	/**
-	 * @param emptyFoldersVisible the emptyFoldersVisible to set
-	 */
-	public void setEmptyFoldersVisible(boolean emptyFoldersVisible) {
-		this.emptyFoldersVisible = emptyFoldersVisible;
-		rebuildTree();
-	}
-
-	/**
 	 * @return the showClosedFolders
 	 */
 	public boolean isShowClosedFolders() {
@@ -672,13 +1160,35 @@ public class FolderTree extends JTree {
 		return engine;
 	}
 
-	public void setSelectedFolder(Folder f) {
+	public void setSelectedFolder(Folder f, int i) {
+		lastDroppedActionIndex=i;
 		DefaultMutableTreeNode n= folderToNode(f);
 		if (n!=null) {
 			setSelectionPath(new TreePath(folderToNode(f).getPath()));
 		}
 	}
 
+	public void setShowEmptyFolders(boolean b) {
+		this.showEmptyFolders = b;
+		rebuildTree();
+	}
 	
+	public int getLastDroppedActionIndex() {
+		return lastDroppedActionIndex;
+	}
 	
+	@Override
+	public boolean isPathEditable(TreePath path) {
+		if (!isEditable()) {
+			return false;
+		}
+	    if (path!=null) {
+			Object value = path.getLastPathComponent();
+			if (value instanceof FolderTreeNode) {
+				return !((FolderTreeNode)value).folder.isDefault();
+			}
+	    }
+		return false;
+	}
+
 }

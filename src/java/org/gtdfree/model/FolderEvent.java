@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -19,6 +19,8 @@
 
 package org.gtdfree.model;
 
+import org.gtdfree.model.GTDData.ActionProxy;
+
 
 /**
  * @author ikesan
@@ -30,10 +32,19 @@ public class FolderEvent extends ActionEvent {
 	/**
 	 * @param source
 	 * @param folder
-	 * @param action
+	 * @param i
 	 */
-	public FolderEvent(Folder folder, Action action, boolean recycled) {
-		super(folder,action,recycled);
+	public FolderEvent(Folder folder, Action a, ActionProxy ap, boolean recycled) {
+		super(folder,a,ap,recycled);
+	}
+
+	/**
+	 * @param source
+	 * @param folder
+	 * @param i
+	 */
+	public FolderEvent(Folder folder, Action[] a, ActionProxy[] ap, boolean recycled) {
+		super(folder,a,ap,recycled);
 	}
 
 	/**
@@ -43,8 +54,19 @@ public class FolderEvent extends ActionEvent {
 	 * @param oldValue
 	 * @param newValue
 	 */
-	public FolderEvent(Folder f, Action action, String property, Object oldValue, Object newValue,boolean recycled) {
-		super(f,action,property,oldValue,newValue,recycled);
+	public FolderEvent(Folder f, Action action, ActionProxy actionP, String property, Object oldValue, Object newValue,boolean recycled) {
+		super(f,action,actionP,property,oldValue,newValue,recycled);
+	}
+
+	/**
+	 * @param source
+	 * @param action
+	 * @param property
+	 * @param oldValue
+	 * @param newValue
+	 */
+	public FolderEvent(Folder f, Action[] action, ActionProxy[] actionP, String property, Object oldValue, Object newValue,boolean recycled) {
+		super(f,action,actionP,property,oldValue,newValue,recycled);
 	}
 
 	/**
@@ -57,15 +79,15 @@ public class FolderEvent extends ActionEvent {
 	@Override
 	public String toString() {
 		StringBuilder sb= new StringBuilder();
-		sb.append("FolderEvent={source=");
+		sb.append("FolderEvent={source="); //$NON-NLS-1$
 		sb.append(((Folder)getSource()).getName());
-		sb.append(", prop=");
+		sb.append(", prop="); //$NON-NLS-1$
 		sb.append(getProperty());
-		sb.append(", old=");
+		sb.append(", old="); //$NON-NLS-1$
 		sb.append(getOldValue());
-		sb.append(", new=");
+		sb.append(", new="); //$NON-NLS-1$
 		sb.append(getNewValue());
-		sb.append("}");
+		sb.append("}"); //$NON-NLS-1$
 		return sb.toString();
 	}
 

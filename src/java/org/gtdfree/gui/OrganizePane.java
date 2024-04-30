@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -25,8 +25,11 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
+import java.awt.print.PrinterException;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.text.MessageFormat;
+import java.util.Date;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
@@ -37,14 +40,18 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
+import javax.swing.JTable.PrintMode;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
+import org.apache.log4j.Logger;
 import org.gtdfree.ApplicationHelper;
 import org.gtdfree.GTDFreeEngine;
 import org.gtdfree.GlobalProperties;
+import org.gtdfree.Messages;
 import org.gtdfree.gui.ActionTable.CellAction;
+import org.gtdfree.model.ActionsCollection;
 import org.gtdfree.model.Folder;
 import org.gtdfree.model.Folder.FolderType;
 
@@ -53,7 +60,7 @@ import org.gtdfree.model.Folder.FolderType;
  * @author ikesan
  *
  */
-public class OrganizePane extends JPanel {
+public class OrganizePane extends JPanel implements WorkflowPane {
 
 	private static final long serialVersionUID = 1L;
 	private FolderPanel folders;
@@ -103,10 +110,27 @@ public class OrganizePane extends JPanel {
 				folders.setShowClosedFolders(OrganizePane.this.engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_CLOSED_FOLDERS));
 			}
 		});
+		folders.setShowEmptyFolders(engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_EMPTY_FOLDERS,true));
+		engine.getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_EMPTY_FOLDERS, new PropertyChangeListener() {
+			public void propertyChange(PropertyChangeEvent evt) {
+				folders.setShowEmptyFolders(OrganizePane.this.engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_EMPTY_FOLDERS,true));
+			}
+		});
+		try {
+			engine.getGlobalProperties().connectBooleanProperty(
+					GlobalProperties.SHOW_CLOSED_FOLDERS, 
+					actions, 
+					"showClosedFolders",  //$NON-NLS-1$
+					null, 
+					"setShowClosedFolders",  //$NON-NLS-1$
+					false);
+		} catch (Exception e) {
+			Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
+		}
 	}
 
 	public OrganizePane() {
-		initialize();
+		//initialize();
 	}
 
 	private void initialize() {
@@ -114,14 +138,13 @@ public class OrganizePane extends JPanel {
 		setLayout(new BorderLayout());
 		
 		split= new JSplitPane();
-		add(split);
 		
 		JPanel jp= new JPanel();
-		jp.setBorder(new TitledBorder("Lists"));
+		jp.setBorder(new TitledBorder(Messages.getString("OrganizePane.Lists"))); //$NON-NLS-1$
 		jp.setLayout(new GridBagLayout());
 
 		folders= new FolderPanel();
-		folders.addPropertyChangeListener("selectedFolder", new PropertyChangeListener() {
+		folders.addPropertyChangeListener("selectedFolder", new PropertyChangeListener() { //$NON-NLS-1$
 		
 			public void propertyChange(PropertyChangeEvent evt) {
 				Folder f= folders.getSelectedFolder();
@@ -133,10 +156,20 @@ public class OrganizePane extends JPanel {
 					}
 					actions.setCellAction(CellAction.RESOLVE);
 					actions.setFolder(f,engine.getStateMachine().getShowAllActions(f.getType()) || engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
+					int i= folders.getLastDroppedActionIndex();
+					if (i>-1 && actions.getRowCount()>0) {
+						if (i>=actions.getRowCount()) i= actions.getRowCount()-1;
+						actions.setRowSelectionInterval(i, i);
+					}
+					
 					if (f.isProject()) {
-						actionsPanel.setTitle("Project: "+f.getName());
+						actionsPanel.setTitle(Messages.getString("OrganizePane.Project")+" "+f.getName()); //$NON-NLS-1$ //$NON-NLS-2$
 					} else {
-						actionsPanel.setTitle("List: "+f.getName());
+						actionsPanel.setTitle(Messages.getString("OrganizePane.List")+" "+f.getName()); //$NON-NLS-1$ //$NON-NLS-2$
+						if (f.isTickler()) {
+							actionsPanel.setFoldingState(Messages.getString("OrganizePane.Tickler"), true); //$NON-NLS-1$
+							ticlePanel.selectToday();
+						}
 					}
 					setting=true;
 					description.setText(f.getDescription());
@@ -144,8 +177,8 @@ public class OrganizePane extends JPanel {
 					actionPanel.setReopenButtonVisible(f.getType()==FolderType.BUILDIN_DELETED || f.getType()==FolderType.BUILDIN_RESOLVED);
 				} else {
 					actions.setFolder(f,engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
-					description.setText("");
-					actionsPanel.setTitle("");
+					description.setText(""); //$NON-NLS-1$
+					actionsPanel.setTitle(""); //$NON-NLS-1$
 					actions.setCellAction(CellAction.RESOLVE);
 					actionPanel.setReopenButtonVisible(false);
 				}
@@ -165,9 +198,9 @@ public class OrganizePane extends JPanel {
 		actions= new ActionTable();
 		actions.setMoveEnabled(true);
 		actions.setCellAction(CellAction.RESOLVE);
-		actions.addPropertyChangeListener("selectedAction", new PropertyChangeListener() {
+		actions.addPropertyChangeListener(ActionTable.SELECTED_ACTIONS_PROPERTY_NAME, new PropertyChangeListener() {
 			public void propertyChange(PropertyChangeEvent evt) {
-				actionPanel.setAction(actions.getSelectedAction());
+				actionPanel.setActions(actions.getSelectedActions());
 			}
 		});
 		//jsppp.setBackground(actions.getCellRenderer(0,0).getTableCellRendererComponent(actions, ApplicationHelper.EMPTY_STRING, false, false, 0, 0).getBackground());
@@ -181,7 +214,7 @@ public class OrganizePane extends JPanel {
 		
 		JPanel dp= new JPanel();
 		dp.setLayout(new GridBagLayout());
-		dp.add(new JLabel("Description:"),new GridBagConstraints(0,0,1,1,0,0,GridBagConstraints.WEST,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
+		dp.add(new JLabel(Messages.getString("OrganizePane.Description.1")),new GridBagConstraints(0,0,1,1,0,0,GridBagConstraints.WEST,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0)); //$NON-NLS-1$
 		
 		description= new JTextArea();
 		description.setEditable(false);
@@ -219,15 +252,15 @@ public class OrganizePane extends JPanel {
 		jsp.setPreferredSize(new Dimension(100,description.getFont().getSize()*3+7+8));
 		jsp.setMinimumSize(jsp.getPreferredSize());
 		dp.add(jsp,new GridBagConstraints(0,1,1,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(0,0,0,0),0,0));
-		actionsPanel.addFold("Description", dp, true, false);
+		actionsPanel.addFold(Messages.getString("OrganizePane.Description"), dp, true, false); //$NON-NLS-1$
 		
 		filterPanel= new FilterPanel();
 		filterPanel.setTable(actions);
-		actionsPanel.addFold("Filter", filterPanel, false, false);
+		actionsPanel.addFold(Messages.getString("OrganizePane.Filter"), filterPanel, false, false); //$NON-NLS-1$
 
 		ticlePanel= new TickleFilterPanel();
 		ticlePanel.setTable(actions);
-		actionsPanel.addFold("Tickler", ticlePanel, false, false);
+		actionsPanel.addFold(Messages.getString("OrganizePane.Tickler"), ticlePanel, false, false); //$NON-NLS-1$
 		
 		jp.add(actionsPanel, new GridBagConstraints(0,0,1,1,1,0,GridBagConstraints.EAST,GridBagConstraints.HORIZONTAL,new Insets(0,2,0,2),0,0));
 
@@ -246,17 +279,19 @@ public class OrganizePane extends JPanel {
 		split1.setLeftComponent(jp);
 		
 		actionPanel= new ActionPanel();
-		actionPanel.putActions(actions.getActionMap());
-		actionPanel.setBorder(new TitledBorder("Selected Action"));
+		actionPanel.addSwingActions(actions.getActionMap());
+		actions.addSwingActions(actionPanel.getActionMap());
+		actionPanel.setBorder(new TitledBorder(Messages.getString("OrganizePane.Sel"))); //$NON-NLS-1$
 		split1.setRightComponent(actionPanel);
 		//jsp1.setDividerLocation(jsp1.getWidth()-500);
 		
+		add(split);
 		
 	}
 	
 	private Action getPurgeDeletedAction() {
 		if (purgeDeletedAction == null) {
-			purgeDeletedAction = new AbstractAction("Remove All Deleted Actions") {
+			purgeDeletedAction = new AbstractAction(Messages.getString("OrganizePane.Rem")) { //$NON-NLS-1$
 			
 				private static final long serialVersionUID = 1L;
 				@Override
@@ -265,7 +300,7 @@ public class OrganizePane extends JPanel {
 				}
 			};
 			purgeDeletedAction.putValue(Action.LARGE_ICON_KEY, ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_delete));
-			purgeDeletedAction.putValue(Action.SHORT_DESCRIPTION, "List with deleted actions will be unconditionally emptied, deleted actions completely removed, no undo possible.");
+			purgeDeletedAction.putValue(Action.SHORT_DESCRIPTION, Messages.getString("OrganizePane.Rem.desc")); //$NON-NLS-1$
 		}
 
 		return purgeDeletedAction;
@@ -286,26 +321,26 @@ public class OrganizePane extends JPanel {
 	}
 
 	public void store(GlobalProperties p) {
-		p.putProperty("organize.dividerLocation1",split.getDividerLocation());
-		p.putProperty("organize.dividerLocation2",split1.getDividerLocation());
-		p.putProperty("organize.tree.openNodes",folders.getExpendedNodes());
-		p.putProperty("organize.tree.foldingStates", folders.getFoldingStates());
+		p.putProperty("organize.dividerLocation1",split.getDividerLocation()); //$NON-NLS-1$
+		p.putProperty("organize.dividerLocation2",split1.getDividerLocation()); //$NON-NLS-1$
+		p.putProperty("organize.tree.openNodes",folders.getExpendedNodes()); //$NON-NLS-1$
+		p.putProperty("organize.tree.foldingStates", folders.getFoldingStates()); //$NON-NLS-1$
 	}
 
 	public void restore(GlobalProperties p) {
-		Integer i= p.getInteger("organize.dividerLocation1");
+		Integer i= p.getInteger("organize.dividerLocation1"); //$NON-NLS-1$
 		if (i!=null) {
 			split.setDividerLocation(i);
 		}
-		i= p.getInteger("organize.dividerLocation2");
+		i= p.getInteger("organize.dividerLocation2"); //$NON-NLS-1$
 		if (i!=null) {
 			split1.setDividerLocation(i);
 		}
-		int[] ii= p.getIntegerArray("organize.tree.openNodes");
+		int[] ii= p.getIntegerArray("organize.tree.openNodes"); //$NON-NLS-1$
 		if (ii!=null) {
 			folders.setExpendedNodes(ii);
 		}
-		boolean[] bb= p.getBooleanArray("organize.tree.foldingStates");
+		boolean[] bb= p.getBooleanArray("organize.tree.foldingStates"); //$NON-NLS-1$
 		if (bb!=null) {
 			folders.setFoldingStates(bb);
 		}
@@ -313,14 +348,42 @@ public class OrganizePane extends JPanel {
 
 	public void openTicklerForPast() {
 		folders.setSelectedFolder(getEngine().getGTDModel().getRemindFolder());
-		actionsPanel.setFoldingState("Tickler", true);
+		actionsPanel.setFoldingState(Messages.getString("OrganizePane.Tickler"), true); //$NON-NLS-1$
 		ticlePanel.selectPast();
 	}
 
 	public void openTicklerForToday() {
 		folders.setSelectedFolder(getEngine().getGTDModel().getRemindFolder());
-		actionsPanel.setFoldingState("Tickler", true);
+		actionsPanel.setFoldingState(Messages.getString("OrganizePane.Tickler"), true); //$NON-NLS-1$
 		ticlePanel.selectToday();
+	}
+	
+	@Override
+	public ActionsCollection getActionsInView() {
+		return new ActionsCollection(actions);
+	}
+	
+	public void printTable() throws PrinterException {
+		if (actions.getFolder()!=null) {
+			actions.print(PrintMode.FIT_WIDTH, new MessageFormat("GTD-Free Data - "+actions.getFolder().getName()+" - "+ApplicationHelper.toISODateTimeString(new Date())), new MessageFormat("Page - {0}")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		}
+	}
+
+	@Override
+	public void initialize(GTDFreeEngine engine) {
+		initialize();
+		setEngine(engine);
+		restore(engine.getGlobalProperties());
+	}
+	
+	@Override
+	public boolean isInitialized() {
+		return engine!=null;
+	}
+
+	@Override
+	public Folder getSelectedFolder() {
+		return folders.getSelectedFolder();
 	}
 
 }

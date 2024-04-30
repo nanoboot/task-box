@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -19,219 +19,615 @@
 
 package org.gtdfree.model;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.Reader;
-import java.net.URL;
-import java.nio.CharBuffer;
-import java.nio.charset.Charset;
-import java.text.ParseException;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.swing.event.EventListenerList;
 import javax.xml.parsers.FactoryConfigurationError;
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.XMLStreamReader;
-import javax.xml.stream.XMLStreamWriter;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.gtdfree.ApplicationHelper;
-import org.gtdfree.model.Action.ActionType;
+import org.gtdfree.Messages;
+import org.gtdfree.model.ActionEvent.SortedElements;
+import org.gtdfree.model.ActionEvent.SortedElements.ActionIndex;
 import org.gtdfree.model.Folder.FolderType;
+import org.gtdfree.model.GTDData.ActionProxy;
 
 
 public class GTDModel implements Iterable<Folder> {
 	
-	public static class DataHeader {
-		public DataHeader(File file, String ver, String mod) {
-			this.file=file;
-			version=ver;
-			if (mod!=null) {
-				try {
-					modified= ApplicationHelper.parseLongISO(mod);
-				} catch (ParseException e) {
-					e.printStackTrace();
+	public static class TotalIterator implements Iterator<Object> {
+		
+		private Iterator<Folder> folders;
+		private Iterator<Action> actions;
+		private Folder folder;
+		private Action action;
+		private ActionFilter filter;
+		private boolean folderConsumed=false;
+
+		public TotalIterator(Iterator<Folder> i, ActionFilter f) {
+			folders=i;
+			filter=f;
+		}
+		
+		@Override
+		public boolean hasNext() {
+			if (folder==null) {
+				if (!folders.hasNext()) {
+					return false;
+				}
+				folder= folders.next();
+				if (!filter.isAcceptable(folder, null)) {
+					folder=null;
+					return hasNext();
+				}
+				folderConsumed=false;
+				return true;
+			}
+			if (actions==null) {
+				actions= folder.iterator();
+			}
+			if (action!=null) {
+				return true;
+			}
+			boolean b= actions.hasNext();
+			if (b) {
+				action= actions.next();
+				if (!filter.isAcceptable(folder, action)) {
+					action=null;
+					return hasNext();
+				}
+				return true;
+			}
+			if (!b) {
+				folder=null;
+				actions=null;
+				return hasNext();
+			}
+			return b;
+		}
+		
+		@Override
+		public Object next() {
+			if (!hasNext()) {
+				return null;
+			}
+			if (!folderConsumed) {
+				folderConsumed=true;
+				return folder;
+			}
+			Action a= action;
+			action=null;
+			return a;
+		}
+		
+		@Override
+		public void remove() {
+			throw new UnsupportedOperationException();
+		}
+		
+	}
+	
+	public static final void checkConsistency(GTDModel m, Logger log, boolean fail, boolean correct) throws ConsistencyException {
+		
+		//Map<Integer, Folder> ids2Folders= new HashMap<Integer, Folder>();
+		Map<Integer, Folder> actions2Folders= new HashMap<Integer, Folder>();
+		Set<Integer> project= new HashSet<Integer>();
+		Set<Integer> resolved= new HashSet<Integer>();
+		Set<Integer> reminder= new HashSet<Integer>();
+		Set<Integer> deleted= new HashSet<Integer>();
+		Set<Integer> priority= new HashSet<Integer>();
+
+		int lastIDA=0;
+		int lastIDF=0;
+
+		boolean restart=true;
+		
+		while (restart) {
+			
+			restart=false;
+			
+			actions2Folders.clear();
+			project.clear();
+			resolved.clear();
+			reminder.clear();
+			deleted.clear();
+			priority.clear();
+			
+			if (lastIDF > m.lastFolderID) {
+				if (log!=null) {
+					log.log(Level.WARNING, "Internal inconsistency, highest folder ID not property registered."); //$NON-NLS-1$
+				}
+				m.lastFolderID=lastIDF;
+			}
+
+			if (lastIDA > m.lastActionID) {
+				if (log!=null) {
+					log.log(Level.WARNING, "Internal inconsistency, highest action ID not properly registered."); //$NON-NLS-1$
+				}
+				m.lastActionID=lastIDA;
+			}
+			
+			for (Folder f : m) {
+				
+				// save last ID
+				if (f.getId()>lastIDF) {
+					lastIDF=f.getId();
+				}
+				
+				// check if parent model is set correctly
+				if (f.getParent()!=m) {
+					ConsistencyException e= new ConsistencyException("Folder has no reference to model.", null, new Folder[]{f},null); //$NON-NLS-1$
+					if (fail) {
+						throw e;
+					}
+					log.log(Level.WARNING, "Folder '"+f.getName()+"' has no reference to model.", e); //$NON-NLS-1$ //$NON-NLS-2$
+					if (correct) {
+						f.setParent(m);
+						log.log(Level.INFO, "Parent set to folder  '"+f.getName()+"'."); //$NON-NLS-1$ //$NON-NLS-2$
+					}
+				}
+
+				// go trough all folders which are primary containers for actions, not index folders
+				if (!f.isMeta()) {
+					for (int i=0; i< f.size(); i++) {
+						Action a = f.get(i);
+						
+						
+						// Action may be null because database is corrupted
+						if (a==null) {
+							ConsistencyException e= new ConsistencyException("Action at position '"+i+"' is null.", new Action[]{}, new Folder[]{f},null); //$NON-NLS-1$ //$NON-NLS-2$
+							if (fail) {
+								throw e;
+							}
+							log.log(Level.WARNING, "Action at position '"+i+"' is null.", e); //$NON-NLS-1$ //$NON-NLS-2$
+							// null actions are too dangerous to hang around, they can be removed immediately without side effects 
+							if (correct || true) {
+								ActionProxy ap = f.getProxy(i);
+								f.remove(i);
+								m.removeDeleted(null, ap);
+								ap.delete();
+								log.log(Level.INFO, "Null action at position '"+i+"' in '"+f.getName()+"' is removed."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+								i--;
+								continue;
+							}
+						}
+						
+						// save highest action ID
+						if (a.getId()>lastIDA) {
+							lastIDA= a.getId();
+						}
+						
+						if (a.getProxy()==null) {
+							ConsistencyException e= new ConsistencyException("Action with ID '"+a.getId()+"' has no internal proxy.", new Action[]{a}, new Folder[]{f},null); //$NON-NLS-1$ //$NON-NLS-2$
+							if (fail) {
+								throw e;
+							}
+							log.log(Level.WARNING, "Action with ID '"+a.getId()+"' has no internal proxy.", e); //$NON-NLS-1$ //$NON-NLS-2$
+							if (correct) {
+								a.setProxy(m.getDataRepository().getProxy(a));
+								log.log(Level.INFO, "Proxy set to action with ID '"+a.getId()+"'."); //$NON-NLS-1$ //$NON-NLS-2$
+							}
+						}
+						
+						if (a.getParent()!=f) {
+							ConsistencyException e= new ConsistencyException("Action with ID '"+a.getId()+"' has inconsistent parent list reference.", new Action[]{a}, new Folder[]{f},null); //$NON-NLS-1$ //$NON-NLS-2$
+							if (fail) {
+								throw e;
+							}
+							log.log(Level.WARNING, "Action with ID '"+a.getId()+"' has inconsistent parent list reference.", e); //$NON-NLS-1$ //$NON-NLS-2$
+							if (correct) {
+								Folder f2= a.getParent();
+								ActionProxy ap= m.getDataRepository().getProxy(a);
+								if (f2!=null) {
+									f2.remove(a,ap);
+								}
+								a.setParent(f);
+								log.log(Level.INFO, "Action with ID '"+a.getId()+"' got reference to correct list."); //$NON-NLS-1$ //$NON-NLS-2$
+							}
+						}
+
+						if (actions2Folders.containsKey(a.getId())) {
+							Folder f2= actions2Folders.get(a.getId());
+							Action a2= f2.getActionByID(a.getId());
+							if (a2==a) {
+								ConsistencyException e= new ConsistencyException("Action is registered in two lists.", new Action[]{a}, new Folder[]{f,f2},null); //$NON-NLS-1$
+								if (fail) {
+									throw e;
+								}
+								log.log(Level.WARNING, "Action with ID '"+a.getId()+"' is registered in two lists.", e); //$NON-NLS-1$ //$NON-NLS-2$
+								if (correct) {
+									Folder f3= a.getParent();
+									if (f3==f) {
+										f2.remove(a,m.getDataRepository().getProxy(a));
+										log.log(Level.INFO, "Action with ID '"+a.getId()+"' is only in list '"+f.getName()+"' and removed from others."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+									} else if (f3==f2) {
+										f.remove(a,m.getDataRepository().getProxy(a));
+										log.log(Level.INFO, "Action with ID '"+a.getId()+"' is only in list '"+f2.getName()+"' and removed from others."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+									} else {
+										ActionProxy ap= m.getDataRepository().getProxy(a); 
+										f2.remove(a,ap);
+										f.remove(a,ap);
+										f3.remove(a,ap);
+										m.getInBucketFolder().add(a, ap);
+										log.log(Level.INFO, "Action with ID '"+a.getId()+"' has been moved to InBucket."); //$NON-NLS-1$ //$NON-NLS-2$
+									}
+									restart=true;
+									break;
+								}
+							} else {
+								ConsistencyException e= new ConsistencyException("Two action has same ID.", new Action[]{a,a2}, new Folder[]{f,f2},null); //$NON-NLS-1$
+								if (fail) {
+									throw e;
+								}
+								log.log(Level.WARNING, "Two action has same ID '"+a.getId()+"'.", e); //$NON-NLS-1$ //$NON-NLS-2$
+								if (correct) {
+									ActionProxy ap= m.getDataRepository().getProxy(a);
+									f.remove(a,ap);
+									Action a3= m.createActionCopy(f, a, a.getProject());
+									m.removeDeleted(a, ap);
+									ap.delete();
+									log.log(Level.INFO, "Action was reinserted to folder '"+f.getName()+"' with new ID '"+a3.getId()+"'."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+									restart=true;
+									break;
+								}
+							}
+						}
+
+						actions2Folders.put(a.getId(), f);
+
+						if (a.getProject()!=null) {
+							project.add(a.getId());
+						}
+						if (a.isResolved()) {
+							resolved.add(a.getId());
+						}
+						if (a.isDeleted()) {
+							deleted.add(a.getId());
+						}
+						if (a.getRemind()!=null) {
+							reminder.add(a.getId());
+						}
+						if (a.getPriority()!=null && a.getPriority()!=Priority.None) {
+							priority.add(a.getId());
+						}
+
+					}
 				}
 			}
 		}
-		public DataHeader(File f) throws FileNotFoundException, XMLStreamException, javax.xml.stream.FactoryConfigurationError {
-			file=f;
-			
-			InputStream in=null; 
-			XMLStreamReader r=null;
-			try {
-				
-				in=new BufferedInputStream(new FileInputStream(f));
-				r = XMLInputFactory.newInstance().createXMLStreamReader(in);
-				r.nextTag();
+		
+		if (lastIDF > m.lastFolderID) {
+			log.log(Level.WARNING, "Internal inconsistency, highest folder ID not property registered."); //$NON-NLS-1$
+			m.lastFolderID=lastIDF;
+		}
 
-				if ("gtd-data".equals(r.getLocalName())) {
-					version=r.getAttributeValue(null, "version");
-					try {
-						modified=ApplicationHelper.parseLongISO(r.getAttributeValue(null, "modified"));
-					} catch (ParseException e) {
-						e.printStackTrace();
-					}
-					if (modified==null) {
-						modified= new Date(f.lastModified());
-					}
-				}
+		if (lastIDA > m.lastActionID) {
+			log.log(Level.WARNING, "Internal inconsistency, highest action ID not properly registered."); //$NON-NLS-1$
+			m.lastActionID=lastIDA;
+		}
+
+		
+		for (Folder f : m) {
+			restart=true;
+			while (restart) {
+				restart=false;
 				
-			} finally {
-				if (r!=null) {
-					try {
-						r.close();
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-					if (in!=null) {
-						try {
-							in.close();
-						} catch (Exception e) {
-							e.printStackTrace();
+				int open=0;
+				
+				for (int i=0; i< f.size(); i++) {
+					Action a = f.get(i);
+					
+					if (a==null) {
+						ConsistencyException e= new ConsistencyException("Action in '"+f.getName()+"'  at position '"+i+"' is null.", new Action[]{}, new Folder[]{f},null); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+						if (fail) {
+							throw e;
+						}
+						log.log(Level.WARNING, "Action at position '"+i+"' is null.", e); //$NON-NLS-1$ //$NON-NLS-2$
+						if (correct || true) {
+							ActionProxy ap = f.getProxy(i);
+							f.remove(i);
+							m.removeDeleted(null, ap);
+							ap.delete();
+							log.log(Level.INFO, "Null action at position '"+i+"' in '"+f.getName()+"' is removed."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+							i--;
+							continue;
 						}
 					}
+					
+					if (a.isOpen()) {
+						open++;
+					}
+					
+					// check if action has ben already registered with primary folders, 
+					// actions residing only in index folders will fail here
+					if (!actions2Folders.containsKey(a.getId())) {
+						ConsistencyException e= new ConsistencyException("Action has no defined list.", new Action[]{a}, new Folder[]{f},null); //$NON-NLS-1$
+						if (fail) {
+							throw e;
+						}
+						log.log(Level.WARNING, "Action with ID '"+a.getId()+"' has no defined list.", e); //$NON-NLS-1$ //$NON-NLS-2$
+						if (correct) {
+							Folder f1= a.getParent();
+							if (f1==null) {
+								f1= m.getInBucketFolder();
+							}
+							ActionProxy ap= m.getDataRepository().getProxy(a);
+							f1.add(a, ap);
+							actions2Folders.put(a.getId(), f1);
+							
+							if (a.getId()>lastIDA) {
+								lastIDA=a.getId();
+							}
+							
+							log.log(Level.INFO,"Action with ID '"+a.getId()+"' added to list '"+f1.getName()+"'."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+						}
+					}
+					
+					if (f==m.getDeletedFolder()) {
+						if (!a.isDeleted()) {
+							ConsistencyException e= new ConsistencyException("Action in deleted list is not deleted.", new Action[]{a}, new Folder[]{f},null); //$NON-NLS-1$
+							if (fail) {
+								throw e;
+							}
+							log.log(Level.WARNING, "Action with ID '"+a.getId()+"' in deleted list is not deleted.", e); //$NON-NLS-1$ //$NON-NLS-2$
+							if (correct) {
+								ActionProxy ap= m.getDataRepository().getProxy(a);
+								f.remove(a,ap);
+								log.log(Level.INFO,"Action with ID '"+a.getId()+"' removed from list '"+f.getName()+"'."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+								restart=true;
+								break;
+							}
+						}
+						deleted.remove(a.getId());
+					} else 	if (f==m.getResolvedFolder()) {
+						if (!a.isResolved()) {
+							ConsistencyException e= new ConsistencyException("Action in resolved list is not resolved.", new Action[]{a}, new Folder[]{f},null); //$NON-NLS-1$
+							if (fail) {
+								throw e;
+							}
+							log.log(Level.WARNING, "Action with ID '"+a.getId()+"' in resolved list is not resolved.", e); //$NON-NLS-1$ //$NON-NLS-2$
+							if (correct) {
+								ActionProxy ap= m.getDataRepository().getProxy(a);
+								f.remove(a,ap);
+								log.log(Level.INFO,"Action with ID '"+a.getId()+"' removed from list '"+f.getName()+"'."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+								restart=true;
+								break;
+							}
+						}
+						resolved.remove(a.getId());
+					} else if (f==m.getPriorityFolder()) {
+						if (a.getPriority()==null || a.getPriority()==Priority.None) {
+							ConsistencyException e= new ConsistencyException("Action in priority list has no priority set.", new Action[]{a}, new Folder[]{f},null); //$NON-NLS-1$
+							if (fail) {
+								throw e;
+							}
+							log.log(Level.WARNING, "Action with ID '"+a.getId()+"' in priority list has no priority set.", e); //$NON-NLS-1$ //$NON-NLS-2$
+							if (correct) {
+								ActionProxy ap= m.getDataRepository().getProxy(a);
+								f.remove(a,ap);
+								log.log(Level.INFO,"Action with ID '"+a.getId()+"' removed from list '"+f.getName()+"'."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+								restart=true;
+								break;
+							}
+						}
+						priority.remove(a.getId());
+					} else if (f==m.getRemindFolder()) {
+						if (a.getRemind() ==null ) {
+							ConsistencyException e= new ConsistencyException("Action in reminder list has no reminder set.", new Action[]{a}, new Folder[]{f},null); //$NON-NLS-1$
+							if (fail) {
+								throw e;
+							}
+							log.log(Level.WARNING, "Action with ID '"+a.getId()+"' in remind list has no reminder set.", e); //$NON-NLS-1$ //$NON-NLS-2$
+							if (correct) {
+								ActionProxy ap= m.getDataRepository().getProxy(a);
+								f.remove(a,ap);
+								log.log(Level.INFO,"Action with ID '"+a.getId()+"' removed from list '"+f.getName()+"'."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+								restart=true;
+								break;
+							}
+						}
+						reminder.remove(a.getId());
+					} else 	if (f.isProject()) {
+						
+						if (a.getProject()==null) {
+							ConsistencyException e= new ConsistencyException("Action in project list has no project set.", new Action[]{a}, new Folder[]{f},null); //$NON-NLS-1$
+							if (fail) {
+								throw e;
+							}
+							log.log(Level.WARNING, "Action with ID '"+a.getId()+"' in project list has no project set.", e); //$NON-NLS-1$ //$NON-NLS-2$
+							if (correct) {
+								ActionProxy ap= m.getDataRepository().getProxy(a);
+								f.remove(a,ap);
+								log.log(Level.INFO,"Action with ID '"+a.getId()+"' removed from list '"+f.getName()+"'."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+								restart=true;
+								break;
+							}
+						} else if (!a.getProject().equals(f.getId())) {
+							ConsistencyException e= new ConsistencyException("Action's project and action's project list are not same.", new Action[]{a}, new Folder[]{f}, new Project[]{m.getProject(a.getProject())}); //$NON-NLS-1$
+							if (fail) {
+								throw e;
+							}
+							log.log(Level.WARNING, "Action with ID '"+a.getId()+"' in is in wrong project list.", e); //$NON-NLS-1$ //$NON-NLS-2$
+							if (correct) {
+								ActionProxy ap= m.getDataRepository().getProxy(a);
+								f.remove(a,ap);
+								log.log(Level.INFO,"Action with ID '"+a.getId()+"' removed from list '"+f.getName()+"'."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+								restart=true;
+								break;
+							}
+						}
+						project.remove(a.getId());
+					}
+					
+					
 				}
-			}
+				
+				if (open != f.getOpenCount()) {
+					log.log(Level.WARNING, "Internal inconsistency, folder '"+f.getName()+"' has wrong open count."); //$NON-NLS-1$ //$NON-NLS-2$
+					f.setOpenCount(open);
+				}
+			}			
+		}
+		
+		if (lastIDF > m.lastFolderID) {
+			log.log(Level.WARNING, "Internal inconsistency, highest folder ID not property registered."); //$NON-NLS-1$
+			m.lastFolderID=lastIDF;
+		}
 
+		if (lastIDA > m.lastActionID) {
+			log.log(Level.WARNING, "Internal inconsistency, highest action ID not properly registered."); //$NON-NLS-1$
+			m.lastActionID=lastIDA;
 		}
-		private File file;
-		private String version;
-		private Date modified;
-		/**
-		 * @return the version
-		 */
-		public String getVersion() {
-			return version;
-		}
-		/**
-		 * @return the modified
-		 */
-		public Date getModified() {
-			return modified;
-		}
-		public File getFile() {
-			return file;
-		}
-		@Override
-		public String toString() {
-			return file.toString()+" "+ApplicationHelper.toISODateTimeString(modified)+" "+version;
-		}
-	}
-	
-	public static final void main(String[] args) {
-		GTDModel m= new GTDModel();
+
 		
-		//Folder f= m.createFolder("Input Bin", FolderType.NOTE);
-		
-		//Action id= m.createAction(f,"My stupid idea.");
-		
-		
-		try {
-			m.store(new File("out.xml"));
-		
-			m.load(new File("out.xml"));
+		if (project.size()>0) {
 			
-			m.store(new File("out1.xml"));			
-		
-		} catch (Exception e) {
-			e.printStackTrace();
+			Integer[] id= project.toArray(new Integer[project.size()]);
+			Action[] a= new Action[id.length];
+			
+			for (int i = 0; i < a.length; i++) {
+				a[i]= m.getAction(id[i]);
+			}
+			
+			ConsistencyException e= new ConsistencyException("Actions with project set are not listed in project lists.", a, null, null); //$NON-NLS-1$
+			if (fail) {
+				throw e;
+			}
+			log.log(Level.WARNING, "Actions with IDs '"+Arrays.toString(id)+"' are not in project lists.", e); //$NON-NLS-1$ //$NON-NLS-2$
+			if (correct) {
+				for (int i = 0; i < a.length; i++) {
+					ActionProxy ap= m.getDataRepository().getProxy(a[i]);
+					Project p= m.getProject(a[i].getProject());
+					p.add(a[i],ap);
+					log.log(Level.INFO,"Action with ID '"+a[i].getId()+"' added to project list '"+p.getName()+"'."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				}
+			}
+			
 		}
 		
-	}
-	
-	public static final void checkConsistency(GTDModel m) throws ConsistencyException {
+		if (deleted.size()>0) {
+			
+			Integer[] id= deleted.toArray(new Integer[deleted.size()]);
+			Action[] a= new Action[id.length];
+			
+			for (int i = 0; i < a.length; i++) {
+				a[i]= m.getAction(id[i]);
+			}
+			
+			ConsistencyException e= new ConsistencyException("Actions with deleted status are not listed in deleted list.", a, null, null); //$NON-NLS-1$
+			if (fail) {
+				throw e;
+			}
+			log.log(Level.WARNING, "Actions with IDs '"+Arrays.toString(id)+"' are not in deleted list.", e); //$NON-NLS-1$ //$NON-NLS-2$
+			if (correct) {
+				Folder f= m.getDeletedFolder();
+				for (int i = 0; i < a.length; i++) {
+					ActionProxy ap= m.getDataRepository().getProxy(a[i]);
+					f.add(a[i],ap);
+					log.log(Level.INFO,"Action with ID '"+a[i].getId()+"' added to list '"+f.getName()+"'."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				}
+			}
+			
+		}
 		
-		Map<Integer, Folder> ids2Folders= new HashMap<Integer, Folder>();
-		Map<Integer, Action> ids2Actions= new HashMap<Integer, Action>();
-		Map<Action, Folder> actions2Folders= new HashMap<Action, Folder>();
-		Map<Action, Integer> actions2Projects= new HashMap<Action, Integer>();
-		Set<Action> resolved= new HashSet<Action>();
+		if (resolved.size()>0) {
+			
+			Integer[] id= resolved.toArray(new Integer[resolved.size()]);
+			Action[] a= new Action[id.length];
+			
+			for (int i = 0; i < a.length; i++) {
+				a[i]= m.getAction(id[i]);
+			}
+			
+			ConsistencyException e= new ConsistencyException("Actions with resolved status are not listed in resolved list.", a, null, null); //$NON-NLS-1$
+			if (fail) {
+				throw e;
+			}
+			log.log(Level.WARNING, "Actions with IDs '"+Arrays.toString(id)+"' are not in resolved list.", e); //$NON-NLS-1$ //$NON-NLS-2$
+			if (correct) {
+				Folder f= m.getResolvedFolder();
+				for (int i = 0; i < a.length; i++) {
+					ActionProxy ap= m.getDataRepository().getProxy(a[i]);
+					f.add(a[i],ap);
+					log.log(Level.INFO,"Action with ID '"+a[i].getId()+"' added to list '"+f.getName()+"'."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				}
+			}
+			
+		}
 
-		for (Folder f : m) {
-			if (ids2Folders.containsKey(f.getId())) {
-				throw new ConsistencyException("Lists has same ID.", null, new Folder[]{f,ids2Folders.get(f.getId())},null);
+		if (reminder.size()>0) {
+			
+			Integer[] id= reminder.toArray(new Integer[reminder.size()]);
+			Action[] a= new Action[id.length];
+			
+			for (int i = 0; i < a.length; i++) {
+				a[i]= m.getAction(id[i]);
 			}
-			ids2Folders.put(f.getId(), f);
-			if (!f.isMeta()) {
-				for (Action a : f) {
-					if (ids2Actions.containsKey(a.getId())) {
-						throw new ConsistencyException("Actions has same ID.", new Action[]{a,ids2Actions.get(a.getId())}, null,null);
-					}
-					ids2Actions.put(a.getId(), a);
-					if (actions2Folders.containsKey(a)) {
-						throw new ConsistencyException("Action is in more than one list.", new Action[]{a}, new Folder[]{f,actions2Folders.get(a)},null);
-					}
-					actions2Folders.put(a, f);
-					if (a.getProject()!=null) {
-						actions2Projects.put(a, a.getProject());
-					}
-					if (!a.isOpen()) {
-						resolved.add(a);
-					}
-				}
+			
+			ConsistencyException e= new ConsistencyException("Actions with reminder are not listed in reminder list.", a, null, null); //$NON-NLS-1$
+			if (fail) {
+				throw e;
 			}
-		}
-		
-		for (Folder f : m) {
-			if (f.isBuildIn()) {
-				for (Action a : f) {
-					if (!actions2Folders.containsKey(a)) {
-						throw new ConsistencyException("Action has no user defined folder, only default folder.", new Action[]{a}, new Folder[]{f},null);
-					}
-					if (m.getResolvedFolder().getId()==f.getId()) {
-						resolved.remove(a);
-					}
-				}
-			} else if (f.isProject()) {
-				for (Action a : f) {
-					if (!actions2Folders.containsKey(a)) {
-						throw new ConsistencyException("Action has no user defined folder, only project folder.", new Action[]{a}, new Folder[]{f},null);
-					}
-				}
-				for (Action a : f) {
-					Integer p= actions2Projects.get(a);
-					if (p==null) {
-						throw new ConsistencyException("Action has no project set but is located in project folder.", new Action[]{a}, null, new Project[]{(Project)f});
-					}
-					if (p!=f.getId()) {
-						throw new ConsistencyException("Action's project and action's project folder are not same.", new Action[]{a}, new Folder[]{f}, new Project[]{m.getProject(p)});
-					}
-					actions2Projects.remove(a);
+			log.log(Level.WARNING, "Actions with IDs '"+Arrays.toString(id)+"' are not in remind list.", e); //$NON-NLS-1$ //$NON-NLS-2$
+			if (correct) {
+				Folder f= m.getRemindFolder();
+				for (int i = 0; i < a.length; i++) {
+					ActionProxy ap= m.getDataRepository().getProxy(a[i]);
+					f.add(a[i],ap);
+					log.log(Level.INFO,"Action with ID '"+a[i].getId()+"' added to list '"+f.getName()+"'."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 				}
 			}
+			
 		}
-		
-		if (actions2Projects.size()>0) {
-			throw new ConsistencyException("Actions has project set, but not located in project folders.", actions2Projects.keySet().toArray(new Action[actions2Projects.size()]), null, null);
+
+		if (priority.size()>0) {
+			
+			Integer[] id= priority.toArray(new Integer[priority.size()]);
+			Action[] a= new Action[id.length];
+			
+			for (int i = 0; i < a.length; i++) {
+				a[i]= m.getAction(id[i]);
+			}
+			
+			ConsistencyException e= new ConsistencyException("Actions with priority are not listed in priority list.", a, null, null); //$NON-NLS-1$
+			if (fail) {
+				throw e;
+			}
+			log.log(Level.WARNING, "Actions with IDs '"+Arrays.toString(id)+"' are not in priority list.", e); //$NON-NLS-1$ //$NON-NLS-2$
+			if (correct) {
+				Folder f= m.getPriorityFolder();
+				for (int i = 0; i < a.length; i++) {
+					ActionProxy ap= m.getDataRepository().getProxy(a[i]);
+					f.add(a[i],ap);
+					log.log(Level.INFO,"Action with ID '"+a[i].getId()+"' added to list '"+f.getName()+"'."); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				}
+			}
+			
 		}
-		if (actions2Projects.size()>0) {
-			throw new ConsistencyException("Actions are resolved, but not located in resolved default folder.", resolved.toArray(new Action[resolved.size()]), null,null);
-		}
-		
+
 	}
 
 	
-	class ModelListenerSupport implements GTDModelListener {
-		EventListenerList listeners= new EventListenerList();
+	static class ModelListenerSupport implements GTDModelListener {
+		private EventListenerList listeners= new EventListenerList();
+		private GTDModel model;
+		
+		public ModelListenerSupport(GTDModel model) {
+			this.model=model;
+		}
 		
 		public void addlistener(GTDModelListener l) {
 			listeners.add(GTDModelListener.class,l);
@@ -242,101 +638,75 @@ public class GTDModel implements Iterable<Folder> {
 		
 		void checkEvent(ActionEvent e) {
 			if (e.getNewValue()==e.getOldValue()) {
-				throw new RuntimeException("Internal error, property not changed: "+e.toString());
+				throw new RuntimeException("Internal error, property not changed: "+e.toString()); //$NON-NLS-1$
 			}
 		}
 		
 		void updateMetaAdd(FolderEvent a) {
-			if (a.getAction().isResolved()) {
-				resolved.add(a.getAction());
+			
+			SortedElements se= a.getSortedElements();
+			
+			if (se.size(ActionIndex.RESOLVED)>0) {
+				model.resolved.add(se.getActions(ActionIndex.RESOLVED), se.getActionProxies(ActionIndex.RESOLVED));
 			}
-			if (a.getAction().isDeleted()) {
-				deleted.add(a.getAction());
+			if (se.size(ActionIndex.DELETED)>0) {
+				model.deleted.add(se.getActions(ActionIndex.DELETED), se.getActionProxies(ActionIndex.DELETED));
 			}
-			if (a.getAction().getRemind()!=null) {
-				reminder.add(a.getAction());
+			if (se.size(ActionIndex.REMINDER)>0) {
+				model.reminder.add(se.getActions(ActionIndex.REMINDER), se.getActionProxies(ActionIndex.REMINDER));
 			}
-			if (a.getAction().getPriority()!=null && a.getAction().getPriority()!=Priority.None) {
-				priority.add(a.getAction());
+			if (se.size(ActionIndex.PRIORITY)>0) {
+				model.priority.add(se.getActions(ActionIndex.PRIORITY), se.getActionProxies(ActionIndex.PRIORITY));
 			}
-			if (a.getAction().isQueued() && !suspentedForMultipleChanges) {
-				queue.add(a.getAction());
+			if (se.size(ActionIndex.QUEUE)>0 && !model.suspendedForMultipleChanges) {
+				model.queue.add(se.getActions(ActionIndex.QUEUE), se.getActionProxies(ActionIndex.QUEUE));
 			}
-			if (a.getAction().getProject()!=null && getProject(a.getAction().getProject())!=null) {
-				getProject(a.getAction().getProject()).add(a.getAction());
+			if (se.size(ActionIndex.PROJECT)>0) {
+				Action[] aac= se.getActions(ActionIndex.PROJECT);
+				ActionProxy[] aap= se.getActionProxies(ActionIndex.PROJECT);
+				for (int j = 0; j < aac.length; j++) {
+					if (getProject(aac[j].getProject())!=null) {
+						getProject(aac[j].getProject()).add(aac[j], aap[j]);
+					}
+				}
 			}
 		}
+		
 		private Project getProject(Integer project) {
-			return projects.get(project);
+			return model.projects.get(project);
 		}
+		
 		void updateMetaRemove(FolderEvent a) {
-			if (a.getFolder()!=deleted && a.getAction().isDeleted()) {
-				deleted.remove(a.getAction());
-			}
-			if (a.getFolder()==deleted) {
-				if (a.getAction().getRemind()!=null) {
-					reminder.remove(a.getAction());
-				}
-				if (a.getAction().getPriority()!=null && a.getAction().getPriority()!=Priority.None) {
-					priority.remove(a.getAction());
-				}
-				if (a.getAction().isQueued()) {
-					queue.remove(a.getAction());
-				}
-				if (a.getAction().getProject()!=null && getProject(a.getAction().getProject())!=null) {
-					getProject(a.getAction().getProject()).remove(a.getAction());
-				}
+			if (a.getFolder()==model.deleted) {
+				model.removeDeleted(a.getSortedElements());
 			}				
-			/*if (!a.getAction().isOpen()) {
-				resolved.remove(a.getAction());
-			}
-			if (a.getAction().getRemind()!=null) {
-				reminder.remove(a.getAction());
-			}				
-			if (a.getAction().getPriority()==null || a.getAction().getPriority()==Priority.None) {
-				priority.remove(a.getAction());
-			}*/
 		}
 		void updateMetaModify(ActionEvent a) {
+			SortedElements se= a.getSortedElements();
 			if (a.getProperty().equals(Action.RESOLUTION_PROPERTY_NAME)) {
-				if (a.getAction().isResolved()) {
-					resolved.add(a.getAction());
-				} else {
-					resolved.remove(a.getAction());
-				}
-				if (a.getAction().isDeleted()) {
-					deleted.add(a.getAction());
-				} else {
-					deleted.remove(a.getAction());
-				}
+				model.resolved.add(se.getActions(ActionIndex.RESOLVED),se.getActionProxies(ActionIndex.RESOLVED));
+				model.resolved.remove(se.getActionsInv(ActionIndex.RESOLVED),se.getActionProxiesInv(ActionIndex.RESOLVED));
+				model.deleted.add(se.getActions(ActionIndex.DELETED),se.getActionProxies(ActionIndex.DELETED));
+				model.deleted.remove(se.getActionsInv(ActionIndex.DELETED),se.getActionProxiesInv(ActionIndex.DELETED));
 			}
 			if (a.getProperty().equals(Action.REMIND_PROPERTY_NAME)) {
-				if (a.getAction().getRemind()!=null) {
-					reminder.add(a.getAction());
-				} else {
-					reminder.remove(a.getAction());
-				}
+				model.reminder.add(se.getActions(ActionIndex.REMINDER),se.getActionProxies(ActionIndex.REMINDER));
+				model.reminder.remove(se.getActionsInv(ActionIndex.REMINDER),se.getActionProxiesInv(ActionIndex.REMINDER));
 			}
 			if (a.getProperty().equals(Action.PRIORITY_PROPERTY_NAME)) {
-				if (a.getAction().getPriority()!=null && a.getAction().getPriority()!=Priority.None) {
-					priority.add(a.getAction());
-				} else {
-					priority.remove(a.getAction());
-				}
+				model.priority.add(se.getActions(ActionIndex.PRIORITY),se.getActionProxies(ActionIndex.PRIORITY));
+				model.priority.remove(se.getActionsInv(ActionIndex.PRIORITY),se.getActionProxiesInv(ActionIndex.PRIORITY));
 			}
-			if (a.getProperty().equals(Action.QUEUED_PROPERTY_NAME) && !suspentedForMultipleChanges) {
-				if (a.getAction().isQueued()) {
-					queue.add(a.getAction());
-				} else {
-					queue.remove(a.getAction());
-				}
+			if (a.getProperty().equals(Action.QUEUED_PROPERTY_NAME) && !model.suspendedForMultipleChanges) {
+				model.queue.add(se.getActions(ActionIndex.QUEUE),se.getActionProxies(ActionIndex.QUEUE));
+				model.queue.remove(se.getActionsInv(ActionIndex.QUEUE),se.getActionProxiesInv(ActionIndex.QUEUE));
 			}
 			if (a.getProperty().equals(Action.PROJECT_PROPERTY_NAME)) {
 				if (a.getOldValue()!=null) {
-					getProject((Integer)a.getOldValue()).remove(a.getAction());
+					getProject((Integer)a.getOldValue()).remove(se.getActions(),se.getActionProxies());
 				}
 				if (a.getNewValue()!=null) {
-					getProject((Integer)a.getNewValue()).add(a.getAction());
+					getProject((Integer)a.getNewValue()).add(se.getActions(),se.getActionProxies());
 				}
 			}
 		}
@@ -348,7 +718,7 @@ public class GTDModel implements Iterable<Folder> {
 				try {
 					l[i].elementAdded(a);
 				} catch (Exception e) {
-					e.printStackTrace();
+					org.apache.log4j.Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
 				}
 			}
 		}
@@ -357,19 +727,15 @@ public class GTDModel implements Iterable<Folder> {
 			if (!((Folder)a.getSource()).isMeta()) {
 				updateMetaModify(a);
 				// rethrow events for meta folders
-				if (a.getAction().isQueued()) {
-					queue.fireElementModified(a.getAction(),a.getProperty(),a.getOldValue(),a.getNewValue(),true);
-				}
-				if (a.getAction().getRemind()!=null) {
-					reminder.fireElementModified(a.getAction(),a.getProperty(),a.getOldValue(),a.getNewValue(),true);
-				}
-				if (a.getAction().getPriority()==null || a.getAction().getPriority()!=Priority.None) {
-					priority.fireElementModified(a.getAction(),a.getProperty(),a.getOldValue(),a.getNewValue(),true);
-				}
-				if (a.getAction().getProject()!=null) {
-					Project p= getProject(a.getAction().getProject());
+				model.queue.fireElementModified(a.getSortedElements().getActions(ActionIndex.QUEUE), a.getSortedElements().getActionProxies(ActionIndex.QUEUE),a.getProperty(),a.getOldValue(),a.getNewValue(),true);
+				model.reminder.fireElementModified(a.getSortedElements().getActions(ActionIndex.REMINDER), a.getSortedElements().getActionProxies(ActionIndex.REMINDER),a.getProperty(),a.getOldValue(),a.getNewValue(),true);
+				model.priority.fireElementModified(a.getSortedElements().getActions(ActionIndex.PRIORITY), a.getSortedElements().getActionProxies(ActionIndex.PRIORITY),a.getProperty(),a.getOldValue(),a.getNewValue(),true);
+				Action[] aac= a.getSortedElements().getActions(ActionIndex.PROJECT);
+				ActionProxy[] aap= a.getSortedElements().getActionProxies(ActionIndex.PROJECT);
+				for (int j = 0; j < aac.length; j++) {
+					Project p= getProject(aac[j].getProject());
 					if (p!=null) {
-						p.fireElementModified(a.getAction(),a.getProperty(),a.getOldValue(),a.getNewValue(),true);
+						p.fireElementModified(aac[j], aap[j],a.getProperty(),a.getOldValue(),a.getNewValue(),true);
 					}
 				}
 			}
@@ -378,7 +744,7 @@ public class GTDModel implements Iterable<Folder> {
 				try {
 					l[i].elementModified(a);
 				} catch (Exception e) {
-					e.printStackTrace();
+					org.apache.log4j.Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
 				}
 			}
 		}
@@ -389,7 +755,7 @@ public class GTDModel implements Iterable<Folder> {
 				try {
 					l[i].elementRemoved(a);
 				} catch (Exception e) {
-					e.printStackTrace();
+					org.apache.log4j.Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
 				}
 			}
 		}
@@ -399,12 +765,12 @@ public class GTDModel implements Iterable<Folder> {
 				try {
 					l[i].folderAdded(folder);
 				} catch (Exception e) {
-					e.printStackTrace();
+					org.apache.log4j.Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
 				}
 			}
 		}
 		public void folderModified(Folder f, String p, Object o, Object n, boolean recycled) {
-			folderModified(new FolderEvent(f,null,p,o,n,recycled));
+			folderModified(new FolderEvent(f,(Action[])null,(ActionProxy[])null,p,o,n,recycled));
 		}
 		public void folderModified(FolderEvent folder) {
 			GTDModelListener[] l= listeners.getListeners(GTDModelListener.class);
@@ -412,7 +778,7 @@ public class GTDModel implements Iterable<Folder> {
 				try {
 					l[i].folderModified(folder);
 				} catch (Exception e) {
-					e.printStackTrace();
+					org.apache.log4j.Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
 				}
 			}
 		}
@@ -422,7 +788,7 @@ public class GTDModel implements Iterable<Folder> {
 				try {
 					l[i].folderRemoved(folder);
 				} catch (Exception e) {
-					e.printStackTrace();
+					org.apache.log4j.Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
 				}
 			}
 		}
@@ -432,7 +798,7 @@ public class GTDModel implements Iterable<Folder> {
 				try {
 					l[i].orderChanged(f);
 				} catch (Exception e) {
-					e.printStackTrace();
+					org.apache.log4j.Logger.getLogger(this.getClass()).debug("Internal error.", e); //$NON-NLS-1$
 				}
 			}
 		}
@@ -440,29 +806,96 @@ public class GTDModel implements Iterable<Folder> {
 	
 	
 	public Action createAction(Folder f, String desc) {
-		Action id= new Action(++lastActionID,new Date(),null,desc);
-		f.add(0,id);
-		return id;
+		ActionProxy ap= getDataRepository().newAction(++lastActionID,new Date(),null,desc);
+		Action a= ap.get();
+		f.add(0, a, ap);
+		return a;
 	}
 
-	private final static String EOL="\n";
-	private final static String SKIP="  ";
-	private final static String SKIPSKIP="    ";
+	public void removeDeleted(Action a, ActionProxy ap) {
+		
+		deleted.remove(a,ap);
+		
+		if (a==null || a.getRemind()!=null) {
+			reminder.remove(a,ap);
+		}
+		
+		if (a==null || (a.getPriority()!=null && a.getPriority()!=Priority.None)) {
+			priority.remove(a,ap);
+		}
+		
+		if (a==null || a.isQueued()) {
+			queue.remove(a,ap);
+		}
+		
+		if (a!=null && a.getProject()!=null && getProject(a.getProject())!=null) {
+			getProject(a.getProject()).remove(a,ap);
+		}
+		
+	}
+
+	public void removeDeleted(SortedElements se) {
+		
+		deleted.remove(se.getActions(), se.getActionProxies());
+		reminder.remove(se.getActions(ActionIndex.REMINDER),se.getActionProxies(ActionIndex.REMINDER));
+		priority.remove(se.getActions(ActionIndex.PRIORITY),se.getActionProxies(ActionIndex.PRIORITY));
+		queue.remove(se.getActions(ActionIndex.QUEUE),se.getActionProxies(ActionIndex.QUEUE));
+		
+		Action[] ac= se.getActions(ActionIndex.PROJECT);
+		ActionProxy[] ap= se.getActionProxies(ActionIndex.PROJECT);
+		
+		for (int i = 0; i < ac.length; i++) {
+			Project p= getProject(ac[i].getProject());
+			if (p!=null) {
+				p.remove(ac[i], ap[i]);
+			}
+		}
+	}
+
+	public Action createActionCopy(Folder f, Action aa, Integer project) {
+		ActionProxy ap= getDataRepository().newAction(++lastActionID,aa, project);
+		Action a= ap.get();
+		f.add(0, a, ap);
+		return a;
+	}
 
 	private Map<Integer,Folder> folders= new HashMap<Integer,Folder>();
 	private Map<Integer,Project> projects= new HashMap<Integer,Project>();
 	private int lastActionID=0; 
 	private int lastFolderID=0; 
-	private ModelListenerSupport support= new ModelListenerSupport();
+	private transient ModelListenerSupport support= new ModelListenerSupport(this);
 	private Folder resolved;
 	private Folder deleted;
 	private Folder reminder;
 	private Folder inBucket;
-	private boolean suspentedForMultipleChanges= false;
+	private boolean suspendedForMultipleChanges = false;
 	private Folder queue;
 	private Folder priority;
+	private transient GTDData dataRepository;
 	
+	/**
+	 * This constructor creates empty and uninitialized instance. 
+	 * Call <code>initialize()</code> before using, or "things" may happen.
+	 */
 	public GTDModel() {
+		super();
+		//Thread.dumpStack();
+	}
+	
+	/**
+	 * Crates new instance initialized to provided data storage.
+	 * 
+	 * @param data store for GTDModel with all elements, 
+	 * if <code>null</code> then by default internal dummy storage is used, which stores model in memory.
+	 */
+	public GTDModel(GTDData data) {
+		this();
+		initialize(data);
+	}
+	
+	
+	public void initialize(GTDData data) {
+		dataRepository =data;
 		createMetaFolders();
 	}
 
@@ -470,55 +903,65 @@ public class GTDModel implements Iterable<Folder> {
 	 * 
 	 */
 	private void createMetaFolders() {
-		resolved= createFolder(-1, "Resolved", FolderType.BUILDIN_RESOLVED);
-		resolved.setDescription("This is build-in list automatically filled with all resolved actions.");
-		resolved.setComparator(new Comparator<Action>() {
-		
-			public int compare(Action o1, Action o2) {
-				return o1.getId()-o2.getId();
-			}
-		
-		});
-		reminder= createFolder(-2, "Tickler", FolderType.BUILDIN_REMIND);
-		reminder.setDescription("This is build-in list automatically filled with all actions, which has reminder date set.");
-		reminder.setComparator(new Comparator<Action>() {
-		
-			public int compare(Action o1, Action o2) {
-				if (o1.getRemind()==null && o2.getRemind()==null) {
-					return 0;
+		if (resolved==null || !folders.containsKey(-1)) {
+			resolved= createFolder(-1, Messages.getString("GTDModel.Resolved"), FolderType.BUILDIN_RESOLVED); //$NON-NLS-1$
+			resolved.setDescription(Messages.getString("GTDModel.Resolved.desc")); //$NON-NLS-1$
+			resolved.setComparator(new Comparator<Action>() {
+			
+				public int compare(Action o1, Action o2) {
+					return o1.getId()-o2.getId();
 				}
-				if (o1.getRemind()==null) {
-					return -1;
+			
+			});
+		}
+		if (reminder==null || !folders.containsKey(-2)) {
+			reminder= createFolder(-2, Messages.getString("GTDModel.Tickler"), FolderType.BUILDIN_REMIND); //$NON-NLS-1$
+			reminder.setDescription(Messages.getString("GTDModel.Tickler.desc")); //$NON-NLS-1$
+			reminder.setComparator(new Comparator<Action>() {
+			
+				public int compare(Action o1, Action o2) {
+					if (o1.getRemind()==null && o2.getRemind()==null) {
+						return 0;
+					}
+					if (o1.getRemind()==null) {
+						return -1;
+					}
+					if (o2.getRemind()==null) {
+						return 1;
+					}
+					return o1.getRemind().compareTo(o2.getRemind());
 				}
-				if (o2.getRemind()==null) {
-					return 1;
+			
+			});
+		}
+		if (inBucket==null || !folders.containsKey(-3)) {
+			inBucket= createFolder(-3, Messages.getString("GTDModel.InB"), FolderType.INBUCKET); //$NON-NLS-1$
+			inBucket.setDescription(Messages.getString("GTDModel.InB.desc")); //$NON-NLS-1$
+		}
+		if (queue==null || !folders.containsKey(-4)) {
+			queue= createFolder(-4, Messages.getString("GTDModel.Queue"), FolderType.QUEUE); //$NON-NLS-1$
+			queue.setDescription(Messages.getString("GTDModel.Queue.desc")); //$NON-NLS-1$
+		}
+		if (priority==null || !folders.containsKey(-5)) {
+			priority= createFolder(-5, Messages.getString("GTDModel.Priority"), FolderType.BUILDIN_PRIORITY); //$NON-NLS-1$
+			priority.setDescription(Messages.getString("GTDModel.Priority.desc")); //$NON-NLS-1$
+			priority.setComparator(new Comparator<Action>() {
+				public int compare(Action o1, Action o2) {
+					return -o1.getPriority().compareTo(o2.getPriority());
 				}
-				return o1.getRemind().compareTo(o2.getRemind());
-			}
-		
-		});
-		inBucket= createFolder(-3, "In-Bucket", FolderType.INBUCKET);
-		inBucket.setDescription("This is build-in list where all thougths, ideas and actions are collected.\nProcess and empty this list regualry.");
-		
-		queue= createFolder(-4, "Next Actions", FolderType.QUEUE);
-		queue.setDescription("This is build-in list where you queue all actions, whcih should be processed immediatelly.\nQueue here only actions, which should be processed in next work period (hour or day) and switch to Execute tab. This will help you keep focus.");
-		
-		priority= createFolder(-5, "Priority", FolderType.BUILDIN_PRIORITY);
-		priority.setDescription("This is build-in list automatically filled with all actions, which has priority value set to level higher or equal to 'Low'.");
-		priority.setComparator(new Comparator<Action>() {
-			public int compare(Action o1, Action o2) {
-				return -o1.getPriority().compareTo(o2.getPriority());
-			}
-		});
-		deleted= createFolder(-6, "Deleted", FolderType.BUILDIN_DELETED);
-		deleted.setDescription("This is build-in list automatically filled with all deleted actions.");
-		deleted.setComparator(new Comparator<Action>() {
-		
-			public int compare(Action o1, Action o2) {
-				return o1.getId()-o2.getId();
-			}
-		
-		});
+			});
+		}
+		if (deleted==null || !folders.containsKey(-6)) {
+			deleted= createFolder(-6, Messages.getString("GTDModel.Deleted"), FolderType.BUILDIN_DELETED); //$NON-NLS-1$
+			deleted.setDescription(Messages.getString("GTDModel.Deleted.desc")); //$NON-NLS-1$
+			deleted.setComparator(new Comparator<Action>() {
+			
+				public int compare(Action o1, Action o2) {
+					return o1.getId()-o2.getId();
+				}
+			
+			});
+		}
 	}
 	
 	public void addGTDModelListener(GTDModelListener l) {
@@ -533,22 +976,20 @@ public class GTDModel implements Iterable<Folder> {
 		return createFolder(++lastFolderID, name, type);
 	}
 
-	private synchronized Folder createFolder(int id, String name, FolderType type) {
+	synchronized Folder createFolder(int id, String name, FolderType type) {
 		Folder f= folders.get(id);
 		if (f==null) {
 			if (lastFolderID<id) {
 				lastFolderID=id;
 			}
+			f= getDataRepository().newFolder(id,name,type);
 			if (type==FolderType.PROJECT) {
-				Project p= new Project(this,id,name);
-				f=p;
-				projects.put(id, p);
-			} else {
-				f= new Folder(this,id,name,type);
+				projects.put(id, (Project)f);
 			}
 			f.addFolderListener(support);
 			folders.put(id, f);
 			support.folderAdded(f);
+			getDataRepository().store();
 		}
 		return f;
 	}
@@ -556,15 +997,15 @@ public class GTDModel implements Iterable<Folder> {
 	public synchronized void renameFolder(Folder f, String newName) {
 		String o= f.getName();
 		f.setName(newName);
-		support.folderModified(f,"name",o,newName,false);
+		support.folderModified(f,"name",o,newName,false); //$NON-NLS-1$
 	}
 
 	void fireFolderModified(Folder f, String p, Object o, Object n,boolean recycled) {
 		support.folderModified(f,p,o,n,recycled);
 	}
 
-	public synchronized Folder removeFolder(String name) {
-		Folder f= folders.remove(name);
+	public synchronized Folder removeFolder(int id) {
+		Folder f= folders.remove(id);
 		if (f!=null) {
 			f.removeFolderListener(support);
 			support.folderRemoved(f);
@@ -573,920 +1014,23 @@ public class GTDModel implements Iterable<Folder> {
 	}
 
 	
-	public void store(File f) throws IOException, XMLStreamException, FactoryConfigurationError {
-		BufferedOutputStream bw= new BufferedOutputStream(new FileOutputStream(f));
-		store(bw);
-		bw.close();
-	}
-	
-	public void store(OutputStream out) throws IOException, XMLStreamException, FactoryConfigurationError {
-		XMLStreamWriter w= XMLOutputFactory.newInstance().createXMLStreamWriter(out,"UTF-8");
-
-		w.writeStartDocument("UTF-8","1.0");
-
-		w.writeCharacters(EOL);
-		w.writeCharacters(EOL);
-		
-		w.writeStartElement("gtd-data");
-		w.writeAttribute("version", "2.2");
-		w.writeAttribute("modified", ApplicationHelper.formatLongISO(new Date()));
-		w.writeAttribute("lastActionID",Integer.toString(lastActionID));
-		w.writeCharacters(EOL);
-		w.writeCharacters(EOL);
-
-		// Write folders
-		
-		Folder[] fn= folders();
-		w.writeStartElement("lists");
-		w.writeCharacters(EOL);
-		
-		for (int i = 0; i < fn.length; i++) {
-			Folder ff= fn[i];
-			if (ff.isMeta()) {
-				continue;
-			}
-			w.writeCharacters(SKIP);
-			w.writeStartElement("list");
-			w.writeAttribute("id", String.valueOf(ff.getId()));
-			w.writeAttribute("name", ff.getName());
-			w.writeAttribute("type", ff.getType().toString());
-			w.writeAttribute("closed", Boolean.toString(ff.isClosed()));
-			if (!ff.isInBucket() && ff.getDescription()!=null) {
-				w.writeAttribute("description", ApplicationHelper.escapeControls(ff.getDescription()));
-			}
-			w.writeCharacters(EOL);
-			
-			Action[] aa= ff.actions();
-			for (int j = 0; j < aa.length; j++) {
-				Action a = aa[j];
-				w.writeCharacters(SKIPSKIP);
-				w.writeStartElement("action");
-				w.writeAttribute("id", Integer.toString(a.getId()));
-				w.writeAttribute("created", Long.toString(a.getCreated().getTime()));
-				w.writeAttribute("resolution", a.getResolution().toString());
-				if (a.getResolved()!=null) {
-					w.writeAttribute("resolved", Long.toString(a.getResolved().getTime()));
-				}
-				
-				if (a.getDescription()!=null) {
-					w.writeAttribute("description", ApplicationHelper.escapeControls(a.getDescription()));
-				}
-				
-				if (a.getStart()!=null) w.writeAttribute("start", Long.toString(a.getStart().getTime()));
-				if (a.getRemind()!=null) w.writeAttribute("remind", Long.toString(a.getRemind().getTime()));
-				if (a.getDue()!=null) w.writeAttribute("due", Long.toString(a.getDue().getTime()));
-				if (a.getType()!=null) w.writeAttribute("type", a.getType().toString());
-				if (a.getUrl()!=null) w.writeAttribute("url", a.getUrl().toString());
-				if (a.isQueued()) w.writeAttribute("queued", Boolean.toString(a.isQueued()));
-				if (a.getProject()!=null) w.writeAttribute("project", a.getProject().toString());
-				if (a.getPriority()!=null) w.writeAttribute("priority", a.getPriority().toString());
-				w.writeEndElement();
-				w.writeCharacters(EOL);
-			}
-			w.writeCharacters(SKIP);
-			w.writeEndElement();
-			w.writeCharacters(EOL);
-		}
-		w.writeEndElement();
-		w.writeCharacters(EOL);
-
-		// Write projects
-		Project[] pn= projects();
-		w.writeStartElement("projects");
-		w.writeCharacters(EOL);
-		
-		for (int i = 0; i < pn.length; i++) {
-			Project ff= pn[i];
-			w.writeCharacters(SKIP);
-			w.writeStartElement("project");
-			w.writeAttribute("id", String.valueOf(ff.getId()));
-			w.writeAttribute("name", ff.getName());
-			w.writeAttribute("closed", String.valueOf(ff.isClosed()));
-
-			if (ff.getDescription()!=null) {
-				w.writeAttribute("description", ApplicationHelper.escapeControls(ff.getDescription()));
-			}
-			
-			StringBuilder sb= new StringBuilder();
-			Action[] aa= ff.actions();
-			if (aa.length>0) {
-				sb.append(aa[0].getId());
-			}
-			for (int j = 1; j < aa.length; j++) {
-				sb.append(",");
-				sb.append(aa[j].getId());
-			}
-			w.writeAttribute("actions", sb.toString());
-			w.writeEndElement();
-			w.writeCharacters(EOL);
-		}
-		w.writeEndElement();
-		w.writeCharacters(EOL);
-		
-		// Write queue
-		Folder f= getQueue();
-		w.writeStartElement("queue");
-		w.writeAttribute("id", String.valueOf(f.getId()));
-		w.writeAttribute("name", f.getName());
-		
-		StringBuilder sb= new StringBuilder();
-		Action[] aa= f.actions();
-		if (aa.length>0) {
-			sb.append(aa[0].getId());
-		}
-		for (int j = 1; j < aa.length; j++) {
-			sb.append(",");
-			sb.append(aa[j].getId());
-		}
-		w.writeAttribute("actions", sb.toString());
-		w.writeEndElement();
-		w.writeCharacters(EOL);
-		
-		// containers
-		w.writeEndElement();
-		w.writeEndDocument();
-		
-		w.flush();
-		w.close();
-		
-	}
-	
-	public void load(File f) throws XMLStreamException, IOException {
-		InputStream r= new FileInputStream(f);
-		try {
-			load(r);
-		} finally {
-			try {
-				r.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-	}
-
-	public DataHeader load(InputStream in) throws XMLStreamException, IOException {
-		
-		lastActionID=-1;
-		lastFolderID=-1;
-		folders.clear();
-		projects.clear();
-		createMetaFolders();
-		
-		setSuspentedForMultipleChanges(true);
-		
-		XMLStreamReader r;
-		try {
-			
-			// buffer size is same as default in 1.6, we explicitly request it so, not to brake if defaut changes.
-			BufferedInputStream bin= new BufferedInputStream(in,8192);
-			bin.mark(8191);
-			
-			Reader rr= new InputStreamReader(bin);
-			CharBuffer b= CharBuffer.allocate(96);
-			rr.read(b);
-			b.position(0);
-			//System.out.println(b);
-			Pattern pattern = Pattern.compile("<\\?.*?encoding\\s*?=.*?\\?>",Pattern.CASE_INSENSITIVE);	            
-            Matcher matcher = pattern.matcher(b);
-
-            // reset back to start of file
-            bin.reset();
-
-            // we check if encoding is defined in xml, by the book encoding on r should be null if not defined in xml,
-            // but in reality it can be arbitrary if not defined in xml. So we have to check ourselves.
-            if (matcher.find()) {
-            	//System.out.println(matcher);
-            	// if defined, then XML parser will pick it up and use it
-    			r = XMLInputFactory.newInstance().createXMLStreamReader(bin);
-    			System.out.println("XML declared encoding: "+r.getEncoding()+", system default encoding: "+Charset.defaultCharset());
-            } else {
-            	//System.out.println(matcher);
-            	// if not defined, then we assume it is generated by gtd-free version 0.4 or some local editor,
-            	// so we assume system default encoding.
-    			r = XMLInputFactory.newInstance().createXMLStreamReader(new InputStreamReader(bin));
-    			System.out.println("XML assumed system default encoding: "+Charset.defaultCharset());
-            }
-			
-			r.nextTag();
-			if ("gtd-data".equals(r.getLocalName())) {
-				DataHeader dh= new DataHeader(null,r.getAttributeValue(null, "version"),r.getAttributeValue(null, "modified"));
-				if (dh.version!=null) {
-					if (dh.version.equals("2.0")) {
-						r.nextTag();
-						_load_2_0(r);
-						return dh;
-					}
-				}
-				String s= r.getAttributeValue(null, "lastActionID");
-				if (s!=null) {
-					try {
-						lastActionID= Integer.parseInt(s);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-				}
-				if (dh.version!=null) {
-					if (dh.version.equals("2.1")) {
-						r.nextTag();
-						_load_2_1(r);
-						return dh;
-						
-					} 
-					if (dh.version.equals("2.2")) {
-						r.nextTag();
-						_load_2_2(r);
-						return dh;
-					}
-				}
-				throw new IOException("XML gtd-free data with version number "+dh.version+" can not be imported. Data version is newer then supported versions. Update your GTD-Free application to latest version.");
-			}
-			
-			_load_1_0(r);
-			
-			return null;
-
-		} catch (XMLStreamException e) {
-			if (e.getNestedException()!=null) {
-				e.getNestedException().printStackTrace();
-			} else {
-				e.printStackTrace();
-			}
-			throw e;
-		} catch (IOException e) {
-			throw e;
-		} finally {
-			setSuspentedForMultipleChanges(false);
-		}
-		
-	}
-		
-	private void _load_1_0(XMLStreamReader r) throws XMLStreamException {
-		if (checkTagStart(r,"folders")) {
-			
-			r.nextTag();
-
-			while (checkTagStart(r, "folder")) {
-				String type= r.getAttributeValue(null, "type").trim();
-				Folder ff=null;
-				if ("NOTE".equals(type)) {
-					ff=getInBucketFolder();
-				} else {
-					ff= createFolder(r.getAttributeValue(null, "name"),FolderType.valueOf(type));
-				}
-				r.nextTag();
-				
-				while(checkTagStart(r, "action")) {
-					int i= Integer.parseInt(r.getAttributeValue(null, "id"));
-					Date cr= new Date(Long.parseLong(r.getAttributeValue(null, "created")));
-					Date re= r.getAttributeValue(null, "resolved")==null ? null : new Date(Long.parseLong(r.getAttributeValue(null, "resolved")));
-					String d =r.getAttributeValue(null, "description");
-					if (d!=null) {
-						d=d.replace("\\n", "\n");
-					}
-					Action a= new Action(i,cr,re,d);
-					a.setResolution(Action.Resolution.toResolution(r.getAttributeValue(null, "resolution")));
-					
-					String s= r.getAttributeValue(null, "start");
-					if (s!=null) a.setStart(new Date(Long.parseLong(s)));
-					
-					s= r.getAttributeValue(null, "remind");
-					if (s!=null) a.setRemind(new Date(Long.parseLong(s)));
-
-					s= r.getAttributeValue(null, "due");
-					if (s!=null) a.setDue(new Date(Long.parseLong(s)));
-
-					s= r.getAttributeValue(null, "type");
-					if (s!=null) a.setType(ActionType.valueOf(s));
-					
-					s= r.getAttributeValue(null, "url");
-					if (s!=null) {
-						try {
-							a.setUrl(new URL(s));
-						} catch (Exception e) {
-							e.printStackTrace();
-						}
-					}
-
-
-					ff.add(a);
-					if (a.getId()>lastActionID) {
-						lastActionID=a.getId();
-					}
-					findTagEnd(r,"action");
-					r.nextTag();
-				}	
-					
-				findTagEnd(r,"folder");
-				r.nextTag();
-			}
-			
-		}
-	}
-	private void _load_2_0(XMLStreamReader r) throws XMLStreamException {
-		
-		HashMap<Integer, Action> withProject= new HashMap<Integer, Action>();
-		HashMap<Integer, Action> queued= new HashMap<Integer, Action>();
-
-		if (checkTagStart(r,"folders")) {
-
-			r.nextTag();
-			while (checkTagStart(r, "folder")) {
-				Folder ff;
-				String id= r.getAttributeValue(null,"id");
-				if (id!=null) {
-					ff= createFolder(Integer.parseInt(id),r.getAttributeValue(null, "name"),FolderType.valueOf(r.getAttributeValue(null, "type")));
-				} else {
-					String s=r.getAttributeValue(null, "type").replace("NOTE", "INBUCKET");
-					ff= createFolder(r.getAttributeValue(null, "name"),FolderType.valueOf(s));
-				}
-				String s= r.getAttributeValue(null, "closed");
-				if (s!=null) ff.setClosed(Boolean.parseBoolean(s));
-				s =r.getAttributeValue(null, "description");
-				if (s!=null) {
-					s=s.replace("\\n", "\n");
-				}
-				if (!ff.isInBucket()) {
-					ff.setDescription(s);
-				}
-
-				r.nextTag();
-				
-				while(checkTagStart(r, "action")) {
-					int i= Integer.parseInt(r.getAttributeValue(null, "id"));
-					Date cr= new Date(Long.parseLong(r.getAttributeValue(null, "created")));
-					Date re= r.getAttributeValue(null, "resolved")==null ? null : new Date(Long.parseLong(r.getAttributeValue(null, "resolved")));
-					String d =r.getAttributeValue(null, "description");
-					if (d!=null) {
-						d=d.replace("\\n", "\n");
-					}
-					Action a= new Action(i,cr,re,d);
-					
-					s= r.getAttributeValue(null, "type");
-					if (s!=null) a.setType(ActionType.valueOf(s));
-					
-					s= r.getAttributeValue(null, "url");
-					if (s!=null) {
-						try {
-							a.setUrl(new URL(s));
-						} catch (Exception e) {
-							e.printStackTrace();
-						}
-					}
-
-					s= r.getAttributeValue(null, "start");
-					if (s!=null) a.setStart(new Date(Long.parseLong(s)));
-					
-					s= r.getAttributeValue(null, "remind");
-					if (s!=null) a.setRemind(new Date(Long.parseLong(s)));
-
-					s= r.getAttributeValue(null, "due");
-					if (s!=null) a.setDue(new Date(Long.parseLong(s)));
-
-					s= r.getAttributeValue(null, "queued");
-					if (s!=null) a.setQueued(Boolean.parseBoolean(s));
-
-					s= r.getAttributeValue(null, "project");
-					if (s!=null) a.setProject(Integer.parseInt(s));
-					
-					s= r.getAttributeValue(null, "priority");
-					if (s!=null) a.setPriority(Priority.valueOf(s));
-
-					ff.add(a);
-
-					a.setResolution(Action.Resolution.toResolution(r.getAttributeValue(null, "resolution")));
-
-					if (a.getProject()!=null) {
-						withProject.put(a.getId(), a);
-					}
-
-					if (a.isQueued()) {
-						queued.put(a.getId(), a);
-					}
-					
-					if (a.getId()>lastActionID) {
-						lastActionID=a.getId();
-					}
-					findTagEnd(r,"action");
-					r.nextTag();
-				}	
-					
-				findTagEnd(r,"folder");
-				r.nextTag();
-			}
-			findTagEnd(r,"folders");
-			//r.nextTag();
-		}
-		
-		if (r.getEventType()==XMLStreamReader.END_DOCUMENT) {
-			return;
-		}
-		// read projects
-		r.nextTag();
-
-		if (r.getEventType()==XMLStreamReader.END_DOCUMENT) {
-			return;
-		}
-		
-		if (checkTagStart(r,"projects")) {
-
-			r.nextTag();
-			while (checkTagStart(r, "project")) {
-				Project pp;
-				String id= r.getAttributeValue(null,"id");
-				if (id!=null) {
-					pp= (Project)createFolder(Integer.parseInt(id),r.getAttributeValue(null, "name"),FolderType.PROJECT);
-				} else {
-					pp= (Project)createFolder(r.getAttributeValue(null, "name"),FolderType.PROJECT);
-				}
-				pp.setClosed(Boolean.parseBoolean(r.getAttributeValue(null, "closed")));
-				pp.setGoal(r.getAttributeValue(null, "goal"));
-				
-				String s= r.getAttributeValue(null, "actions");
-				
-				if (s!=null && s.trim().length()>0) {
-					String[] ss= s.trim().split(",");
-					for (int i = 0; i < ss.length; i++) {
-						if (ss[i].trim().length()>0) {
-							int ii= Integer.parseInt(ss[i].trim());
-							Action a= withProject.remove(ii);
-							if (a!=null) {
-								pp.add(a);
-							}
-						}
-					}
-				}
-				r.nextTag();
-				findTagEnd(r,"project");
-				r.nextTag();
-			}
-			findTagEnd(r,"projects");
-		}
-		
-		for (Action a: withProject.values()) {
-			if (a.getProject()!=null) {
-				Project p= getProject(a.getProject());
-				
-				if (p!=null) {
-					p.add(a);
-				} else {
-					System.err.println("Project "+p+" in action "+a+" does not exsist.");
-					a.setProject(null);
-				}
-			}
-		}
-		
-		if (r.getEventType()==XMLStreamReader.END_DOCUMENT) {
-			return;
-		}
-
-		// read projects
-		r.nextTag();
-
-		if (r.getEventType()==XMLStreamReader.END_DOCUMENT) {
-			return;
-		}
-		
-		if (checkTagStart(r,"queue")) {
-			Folder f = getQueue();
-
-			String s= r.getAttributeValue(null, "actions");
-			
-			if (s!=null && s.trim().length()>0) {
-				String[] ss= s.trim().split(",");
-				for (int i = 0; i < ss.length; i++) {
-					if (ss[i].trim().length()>0) {
-						int ii= Integer.parseInt(ss[i].trim());
-						Action a= queued.remove(ii);
-						if (a!=null) {
-							f.add(a);
-						}
-					}
-				}
-			}
-			r.nextTag();
-			findTagEnd(r,"queue");
-			r.nextTag();
-		}
-
-		for (Action a: queued.values()) {
-			if (a.isQueued()) {
-				System.err.println("Action "+a+" is queued but not in queue list.");
-				getQueue().add(a);
-			}
-		}
-
-	}
-	
-	private void _load_2_1(XMLStreamReader r) throws XMLStreamException  {
-		
-		HashMap<Integer, Action> withProject= new HashMap<Integer, Action>();
-		HashMap<Integer, Action> queued= new HashMap<Integer, Action>();
-
-		if (checkTagStart(r,"lists")) {
-
-			r.nextTag();
-			while (checkTagStart(r, "list")) {
-				Folder ff;
-				String id= r.getAttributeValue(null,"id");
-				if (id!=null) {
-					ff= createFolder(Integer.parseInt(id),r.getAttributeValue(null, "name"),FolderType.valueOf(r.getAttributeValue(null, "type")));
-				} else {
-					String s=r.getAttributeValue(null, "type").replace("NOTE", "INBUCKET");
-					ff= createFolder(r.getAttributeValue(null, "name"),FolderType.valueOf(s));
-				}
-				String s= r.getAttributeValue(null, "closed");
-				if (s!=null) ff.setClosed(Boolean.parseBoolean(s));
-				s =r.getAttributeValue(null, "description");
-				if (s!=null) {
-					s=s.replace("\\n", "\n");
-				}
-				if (!ff.isInBucket()) {
-					ff.setDescription(s);
-				}
-
-				r.nextTag();
-				
-				while(checkTagStart(r, "action")) {
-					int i= Integer.parseInt(r.getAttributeValue(null, "id"));
-					Date cr= new Date(Long.parseLong(r.getAttributeValue(null, "created")));
-					Date re= r.getAttributeValue(null, "resolved")==null ? null : new Date(Long.parseLong(r.getAttributeValue(null, "resolved")));
-					String d =r.getAttributeValue(null, "description");
-					if (d!=null) {
-						d=d.replace("\\n", "\n");
-					}
-
-					Action a= new Action(i,cr,re,d);
-					
-					s= r.getAttributeValue(null, "type");
-					if (s!=null) a.setType(ActionType.valueOf(s));
-					
-					s= r.getAttributeValue(null, "url");
-					if (s!=null) {
-						try {
-							a.setUrl(new URL(s));
-						} catch (Exception e) {
-							e.printStackTrace();
-						}
-					}
-
-					s= r.getAttributeValue(null, "start");
-					if (s!=null) a.setStart(new Date(Long.parseLong(s)));
-					
-					s= r.getAttributeValue(null, "remind");
-					if (s!=null) a.setRemind(new Date(Long.parseLong(s)));
-
-					s= r.getAttributeValue(null, "due");
-					if (s!=null) a.setDue(new Date(Long.parseLong(s)));
-
-					s= r.getAttributeValue(null, "queued");
-					if (s!=null) a.setQueued(Boolean.parseBoolean(s));
-
-					s= r.getAttributeValue(null, "project");
-					if (s!=null) a.setProject(Integer.parseInt(s));
-					
-					s= r.getAttributeValue(null, "priority");
-					if (s!=null) a.setPriority(Priority.valueOf(s));
-
-					ff.add(a);
-
-					a.setResolution(Action.Resolution.toResolution(r.getAttributeValue(null, "resolution")));
-
-					if (a.getProject()!=null) {
-						withProject.put(a.getId(), a);
-					}
-
-					if (a.isQueued()) {
-						queued.put(a.getId(), a);
-					}
-					
-					if (a.getId()>lastActionID) {
-						lastActionID=a.getId();
-					}
-					findTagEnd(r,"action");
-					r.nextTag();
-				}	
-					
-				findTagEnd(r,"list");
-				r.nextTag();
-			}
-			findTagEnd(r,"lists");
-			//r.nextTag();
-		}
-		
-		if (r.getEventType()==XMLStreamReader.END_DOCUMENT) {
-			return;
-		}
-		// read projects
-		r.nextTag();
-
-		if (r.getEventType()==XMLStreamReader.END_DOCUMENT) {
-			return;
-		}
-		
-		if (checkTagStart(r,"projects")) {
-
-			r.nextTag();
-			while (checkTagStart(r, "project")) {
-				Project pp;
-				String id= r.getAttributeValue(null,"id");
-				if (id!=null) {
-					pp= (Project)createFolder(Integer.parseInt(id),r.getAttributeValue(null, "name"),FolderType.PROJECT);
-				} else {
-					pp= (Project)createFolder(r.getAttributeValue(null, "name"),FolderType.PROJECT);
-				}
-				pp.setClosed(Boolean.parseBoolean(r.getAttributeValue(null, "closed")));
-				pp.setGoal(r.getAttributeValue(null, "goal"));
-				
-				String s= r.getAttributeValue(null, "actions");
-				
-				if (s!=null && s.trim().length()>0) {
-					String[] ss= s.trim().split(",");
-					for (int i = 0; i < ss.length; i++) {
-						if (ss[i].trim().length()>0) {
-							int ii= Integer.parseInt(ss[i].trim());
-							Action a= withProject.remove(ii);
-							if (a!=null) {
-								pp.add(a);
-							}
-						}
-					}
-				}
-				r.nextTag();
-				findTagEnd(r,"project");
-				r.nextTag();
-			}
-			findTagEnd(r,"projects");
-		}
-		
-		for (Action a: withProject.values()) {
-			if (a.getProject()!=null) {
-				Project p= getProject(a.getProject());
-				
-				if (p!=null) {
-					p.add(a);
-				} else {
-					System.err.println("Project "+p+" in action "+a+" does not exsist.");
-					a.setProject(null);
-				}
-			}
-		}
-		
-		if (r.getEventType()==XMLStreamReader.END_DOCUMENT) {
-			return;
-		}
-
-		// read projects
-		r.nextTag();
-
-		if (r.getEventType()==XMLStreamReader.END_DOCUMENT) {
-			return;
-		}
-		
-		if (checkTagStart(r,"queue")) {
-			Folder f = getQueue();
-
-			String s= r.getAttributeValue(null, "actions");
-			
-			if (s!=null && s.trim().length()>0) {
-				String[] ss= s.trim().split(",");
-				for (int i = 0; i < ss.length; i++) {
-					if (ss[i].trim().length()>0) {
-						int ii= Integer.parseInt(ss[i].trim());
-						Action a= queued.remove(ii);
-						if (a!=null) {
-							f.add(a);
-						}
-					}
-				}
-			}
-			r.nextTag();
-			findTagEnd(r,"queue");
-			r.nextTag();
-		}
-
-		for (Action a: queued.values()) {
-			if (a.isQueued()) {
-				System.err.println("Action "+a+" is queued but not in queue list.");
-				getQueue().add(a);
-			}
-		}
-
-	}
-
-	private void _load_2_2(XMLStreamReader r) throws XMLStreamException  {
-		
-		HashMap<Integer, Action> withProject= new HashMap<Integer, Action>();
-		HashMap<Integer, Action> queued= new HashMap<Integer, Action>();
-
-		if (checkTagStart(r,"lists")) {
-
-			r.nextTag();
-			while (checkTagStart(r, "list")) {
-				Folder ff;
-				String id= r.getAttributeValue(null,"id");
-				if (id!=null) {
-					ff= createFolder(Integer.parseInt(id),r.getAttributeValue(null, "name"),FolderType.valueOf(r.getAttributeValue(null, "type")));
-				} else {
-					String s=r.getAttributeValue(null, "type").replace("NOTE", "INBUCKET");
-					ff= createFolder(r.getAttributeValue(null, "name"),FolderType.valueOf(s));
-				}
-				String s= r.getAttributeValue(null, "closed");
-				if (s!=null) ff.setClosed(Boolean.parseBoolean(s));
-				
-				s = StringEscapeUtils.unescapeJava(r.getAttributeValue(null, "description"));
-				
-				if (!ff.isInBucket()) {
-					ff.setDescription(s);
-				}
-
-				r.nextTag();
-				
-				while(checkTagStart(r, "action")) {
-					int i= Integer.parseInt(r.getAttributeValue(null, "id"));
-					Date cr= new Date(Long.parseLong(r.getAttributeValue(null, "created")));
-					Date re= r.getAttributeValue(null, "resolved")==null ? null : new Date(Long.parseLong(r.getAttributeValue(null, "resolved")));
-					
-					String d = StringEscapeUtils.unescapeJava(r.getAttributeValue(null, "description"));
-					
-					Action a= new Action(i,cr,re,d);
-					
-					s= r.getAttributeValue(null, "type");
-					if (s!=null) a.setType(ActionType.valueOf(s));
-					
-					s= r.getAttributeValue(null, "url");
-					if (s!=null) {
-						try {
-							a.setUrl(new URL(s));
-						} catch (Exception e) {
-							e.printStackTrace();
-						}
-					}
-
-					s= r.getAttributeValue(null, "start");
-					if (s!=null) a.setStart(new Date(Long.parseLong(s)));
-					
-					s= r.getAttributeValue(null, "remind");
-					if (s!=null) a.setRemind(new Date(Long.parseLong(s)));
-
-					s= r.getAttributeValue(null, "due");
-					if (s!=null) a.setDue(new Date(Long.parseLong(s)));
-
-					s= r.getAttributeValue(null, "queued");
-					if (s!=null) a.setQueued(Boolean.parseBoolean(s));
-
-					s= r.getAttributeValue(null, "project");
-					if (s!=null) a.setProject(Integer.parseInt(s));
-					
-					s= r.getAttributeValue(null, "priority");
-					if (s!=null) a.setPriority(Priority.valueOf(s));
-
-					ff.add(a);
-
-					a.setResolution(Action.Resolution.toResolution(r.getAttributeValue(null, "resolution")));
-
-					if (a.getProject()!=null) {
-						withProject.put(a.getId(), a);
-					}
-
-					if (a.isQueued()) {
-						queued.put(a.getId(), a);
-					}
-					
-					if (a.getId()>lastActionID) {
-						lastActionID=a.getId();
-					}
-					findTagEnd(r,"action");
-					r.nextTag();
-				}	
-					
-				findTagEnd(r,"list");
-				r.nextTag();
-			}
-			findTagEnd(r,"lists");
-			//r.nextTag();
-		}
-		
-		if (r.getEventType()==XMLStreamReader.END_DOCUMENT) {
-			return;
-		}
-		// read projects
-		r.nextTag();
-
-		if (r.getEventType()==XMLStreamReader.END_DOCUMENT) {
-			return;
-		}
-		
-		if (checkTagStart(r,"projects")) {
-
-			r.nextTag();
-			while (checkTagStart(r, "project")) {
-				Project pp;
-				String id= r.getAttributeValue(null,"id");
-				if (id!=null) {
-					pp= (Project)createFolder(Integer.parseInt(id),r.getAttributeValue(null, "name"),FolderType.PROJECT);
-				} else {
-					pp= (Project)createFolder(r.getAttributeValue(null, "name"),FolderType.PROJECT);
-				}
-				pp.setClosed(Boolean.parseBoolean(r.getAttributeValue(null, "closed")));
-				pp.setGoal(r.getAttributeValue(null, "goal"));
-				
-				String s = StringEscapeUtils.unescapeJava(r.getAttributeValue(null, "description"));
-				if (s!=null) {
-					pp.setDescription(s);
-				}
-				
-				s= r.getAttributeValue(null, "actions");
-				
-				if (s!=null && s.trim().length()>0) {
-					String[] ss= s.trim().split(",");
-					for (int i = 0; i < ss.length; i++) {
-						if (ss[i].trim().length()>0) {
-							int ii= Integer.parseInt(ss[i].trim());
-							Action a= withProject.remove(ii);
-							if (a!=null) {
-								pp.add(a);
-							}
-						}
-					}
-				}
-				r.nextTag();
-				findTagEnd(r,"project");
-				r.nextTag();
-			}
-			findTagEnd(r,"projects");
-		}
-		
-		for (Action a: withProject.values()) {
-			if (a.getProject()!=null) {
-				Project p= getProject(a.getProject());
-				
-				if (p!=null) {
-					p.add(a);
-				} else {
-					System.err.println("Project "+p+" in action "+a+" does not exsist.");
-					a.setProject(null);
-				}
-			}
-		}
-		
-		if (r.getEventType()==XMLStreamReader.END_DOCUMENT) {
-			return;
-		}
-
-		// read projects
-		r.nextTag();
-
-		if (r.getEventType()==XMLStreamReader.END_DOCUMENT) {
-			return;
-		}
-		
-		if (checkTagStart(r,"queue")) {
-			Folder f = getQueue();
-
-			String s= r.getAttributeValue(null, "actions");
-			
-			if (s!=null && s.trim().length()>0) {
-				String[] ss= s.trim().split(",");
-				for (int i = 0; i < ss.length; i++) {
-					if (ss[i].trim().length()>0) {
-						int ii= Integer.parseInt(ss[i].trim());
-						Action a= queued.remove(ii);
-						if (a!=null) {
-							f.add(a);
-						}
-					}
-				}
-			}
-			r.nextTag();
-			findTagEnd(r,"queue");
-			r.nextTag();
-		}
-
-		for (Action a: queued.values()) {
-			if (a.isQueued()) {
-				System.err.println("Action "+a+" is queued but not in queue list.");
-				getQueue().add(a);
-			}
-		}
-
-	}
-
-	private boolean checkTagStart(XMLStreamReader r, String tag) throws XMLStreamException {
-		return tag.equals(r.getLocalName()) && r.getEventType()==XMLStreamReader.START_ELEMENT;
-	}
-	private void findTagEnd(XMLStreamReader r, String tag) throws XMLStreamException {
-		while (!r.getLocalName().equals(tag) || XMLStreamReader.END_ELEMENT!=r.getEventType()) {
-			if (r.getEventType()==XMLStreamReader.END_DOCUMENT) {
-				return;
-			}
-			r.nextTag();
-		}
-	}
-	
+	/**
+	 * Iterates over all folders, also default and projects.
+	 * @return iterator over all folders
+	 */
 	public Iterator<Folder> iterator() {
 		return folders.values().iterator();
 	}
 	
+	/**
+	 * Iterates over all folders, also default and projects, and all actions.
+	 * Returned object can be folder or project or action.
+	 * @return iterator over all folders and actions
+	 */
+	public Iterator<Object> iterator(ActionFilter filter) {
+		return new TotalIterator(folders.values().iterator(),filter);
+	}
+
 	public int size() {
 		return folders.size();
 	}
@@ -1502,20 +1046,57 @@ public class GTDModel implements Iterable<Folder> {
 	}
 	
 	public boolean moveAction(Action action, Folder toFolder) {
-		Folder f= action.getFolder();
-		if (f!=null && toFolder!=null && f!=toFolder && !toFolder.contains(action)) {
-			toFolder.add(0,action);
-			f.remove(action);
+		Folder f= action.getParent();
+		ActionProxy ap= getDataRepository().getProxy(action);
+		if (f!=null && toFolder!=null && f!=toFolder && !toFolder.contains(ap)) {
+			toFolder.add(0,action,ap);
+			f.remove(action,ap);
 			return true;
 		}
 		return false;
 		
 	}
-	
-	public synchronized Folder[] folders() {
+	public boolean moveActions(Action[] actions, Folder toFolder) {
+		
+		List<Action> a= new LinkedList<Action>(Arrays.asList(actions));
+		List<Folder> f= new LinkedList<Folder>();
+		
+		ListIterator<Action> i= a.listIterator();
+		
+		while (i.hasNext()) {
+			Action aa = i.next();
+			Folder ff= aa.getParent();
+			if (f==null || toFolder==null || ff==toFolder || toFolder.contains(aa.getProxy())) {
+				i.remove();
+			} else {
+				f.add(ff);
+			}
+		}
+		
+		if (a.size()==0) {
+			return false;
+		}
+		
+		toFolder.add(0,a.toArray(new Action[a.size()]));
+		
+		Iterator<Folder> fi= f.iterator();
+		for (Action aa : a) {
+			fi.next().remove(aa, aa.getProxy());
+		}
+		return true;
+	}
+	/**
+	 * Returns array of all folders, also default and projects.
+	 * @return array of all folders
+	 */
+	public synchronized Folder[] toFoldersArray() {
 		return folders.values().toArray(new Folder[folders.size()]);
 	}
-	public synchronized Project[] projects() {
+	/**
+	 * Returns array of all Projects.
+	 * @return array of all Projects
+	 */
+	public synchronized Project[] toProjectsArray() {
 		return projects.values().toArray(new Project[projects.size()]);
 	}
 	
@@ -1544,44 +1125,27 @@ public class GTDModel implements Iterable<Folder> {
 		return deleted;
 	}
 	
-	public void importFile(File file) throws XMLStreamException, FactoryConfigurationError, IOException {
-		InputStream r= new FileInputStream(file);
-		try {
-			importFile(r);
-		} finally {
-			try {
-				r.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-	}
-	public void importFile(InputStream in) throws XMLStreamException, FactoryConfigurationError, IOException {
-		GTDModel m= new GTDModel();
-		m.load(in);
-		importData(m);
-	}
-	
 	public void importData(GTDModel m) {
 
+		getDataRepository().suspend(true);
+		
 		Map<Integer,Integer> folderMap= new HashMap<Integer, Integer>();
 		Map<String,Folder> folderNames= new HashMap<String, Folder>();
 		
 		for (Folder f : this) {
-			folderNames.put(f.getName()+"TYPE"+f.getType(), f);
+			folderNames.put(f.getName()+"TYPE"+f.getType(), f); //$NON-NLS-1$
 		}
 		
-		Folder[] pp= m.folders();
+		Folder[] pp= m.toFoldersArray();
 		for (Folder inP : pp) {
 			if (inP.isBuildIn()) {
 				continue;
 			}
-			Folder f= folderNames.get(inP.getName()+"TYPE"+inP.getType());
+			Folder f= folderNames.get(inP.getName()+"TYPE"+inP.getType()); //$NON-NLS-1$
 			if (f==null) {
 				f= createFolder(inP.getName(), inP.getType());
 				f.setDescription(inP.getDescription());
-			} else {
-				f.setClosed(false);
+				f.setClosed(inP.isClosed());
 			}
 			folderMap.put(inP.getId(), f.getId());
 		}
@@ -1592,29 +1156,29 @@ public class GTDModel implements Iterable<Folder> {
 				for (int i= inF.size()-1; i>-1; i--) {
 				//for (int i= 0; i< inF.size(); i++) {
 					Action inA=inF.get(i);
-					Action a = createAction(f, inA.getDescription());
-					a.copy(inA);
-					a.setProject(folderMap.get(inA.getProject()));
+					createActionCopy(f, inA, folderMap.get(inA.getProject()));
 				}
 			}
 		}
+
+		getDataRepository().suspend(false);
 	}
 	
 	public int getLastActionID() {
 		return lastActionID;
 	}
 
-	public boolean isSuspentedForMultipleChanges() {
-		return suspentedForMultipleChanges;
+	public boolean isSuspendedForMultipleChanges() {
+		return suspendedForMultipleChanges;
 	}
 
-	public void setSuspentedForMultipleChanges(boolean suspentedForMultipleChanges) {
-		this.suspentedForMultipleChanges = suspentedForMultipleChanges;
-		reminder.setSuspentedForMultipleChanges(suspentedForMultipleChanges);
-		resolved.setSuspentedForMultipleChanges(suspentedForMultipleChanges);
-		deleted.setSuspentedForMultipleChanges(suspentedForMultipleChanges);
-		queue.setSuspentedForMultipleChanges(suspentedForMultipleChanges);
-		priority.setSuspentedForMultipleChanges(suspentedForMultipleChanges);
+	public void setSuspendedForMultipleChanges(boolean suspendedForMultipleChanges) {
+		this.suspendedForMultipleChanges = suspendedForMultipleChanges;
+		reminder.setSuspendedForMultipleChanges(suspendedForMultipleChanges);
+		resolved.setSuspendedForMultipleChanges(suspendedForMultipleChanges);
+		deleted.setSuspendedForMultipleChanges(suspendedForMultipleChanges);
+		queue.setSuspendedForMultipleChanges(suspendedForMultipleChanges);
+		priority.setSuspendedForMultipleChanges(suspendedForMultipleChanges);
 	}
 	
 	public Folder getQueue() {
@@ -1633,12 +1197,78 @@ public class GTDModel implements Iterable<Folder> {
 		deleted.purgeAll();
 	}
 
-/*	public Folder getFolder(String name) {
-		for (Folder f : folders.values()) {
+	void setLastActionID(int i) {
+		lastActionID=i;
+	}
+
+	public GTDData getDataRepository() {
+		if (dataRepository ==null) {
+			dataRepository = new GTDDataDefault(this);
+		}
+		return dataRepository;
+	}
+
+	void reconnect() {
+
+		ModelListenerSupport s= support;
+		support= new ModelListenerSupport(this);
+
+		
+		for (Folder f : this) {
+			if (s!=null) f.removeFolderListener(s);
+			f.addFolderListener(support);
+			f.setParent(this);
+		}
+		
+	}
+	
+	public Folder findFirstFolder(String name) {
+		
+		Iterator<Folder> i= folders.values().iterator();
+		
+		while (i.hasNext()) {
+			Folder f = i.next();
 			if (f.getName().equals(name)) {
 				return f;
 			}
 		}
+		
 		return null;
+		
 	}
-*/}
+	
+	public Project findFirstProject(String name) {
+		
+		Iterator<Project> i= projects.values().iterator();
+		
+		while (i.hasNext()) {
+			Project f = i.next();
+			if (f.getName().equals(name)) {
+				return f;
+			}
+		}
+		
+		return null;
+		
+	}
+
+	public Action collectAction(String string) {
+		
+		Action a = createAction(inBucket, string);
+		return a;
+		
+	}
+
+	public void importXMLFile(File file) throws XMLStreamException, FactoryConfigurationError, IOException {
+		GTDDataXMLTools.importFile(this, file);
+	}
+
+	public void exportXML(File f) throws IOException, XMLStreamException, FactoryConfigurationError {
+		GTDDataXMLTools.store(this, f);
+	}
+
+	public void importXML(File f) throws XMLStreamException, IOException {
+		GTDDataXMLTools.importFile(this,f);
+	}
+
+}

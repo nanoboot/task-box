@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -57,7 +57,7 @@ public abstract class AbstractFilterPanel extends JPanel {
 	 */
 	public void setTable(ActionTable t) {
 		this.table = t;
-		table.addPropertyChangeListener("folder",new PropertyChangeListener() {
+		table.addPropertyChangeListener("folder",new PropertyChangeListener() { //$NON-NLS-1$
 			public void propertyChange(PropertyChangeEvent evt) {
 				clearFilters();
 				setEnabled(table.getFolder()!=null);

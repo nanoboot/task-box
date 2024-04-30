@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -20,7 +20,7 @@
 package org.gtdfree.model;
 
 /**
- * Filters action from selectet project
+ * Filters action from selected project
  * @author ikesan
  *
  */
@@ -37,7 +37,9 @@ public class ProjectFilter implements ActionFilter {
 	 */
 	@Override
 	public boolean isAcceptable(Folder f, Action a) {
-		
+		if (a==null) {
+			return true;
+		}
 		if (project==null) {
 			return a.getProject()==null;
 		}

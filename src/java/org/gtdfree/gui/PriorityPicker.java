@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -30,6 +30,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 
 import org.gtdfree.ApplicationHelper;
+import org.gtdfree.Messages;
 import org.gtdfree.model.Priority;
 
 /**
@@ -46,7 +47,9 @@ public class PriorityPicker extends JPanel {
 	private static final Icon grey= ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_star_grey);
 	private static final Icon blue= ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_star_blue);
 	
-	public static final String PRIORITY_PROPERTY_NAME = "priority";
+	private static final int star_size= 12;
+	
+	public static final String PRIORITY_PROPERTY_NAME = "priority"; //$NON-NLS-1$
 	
 	public static void main(String[] args) {
 		
@@ -65,7 +68,7 @@ public class PriorityPicker extends JPanel {
 	
 	public PriorityPicker() {
 		
-		Dimension d= new Dimension(3*(16+4),16+4);
+		Dimension d= new Dimension(3*(star_size+3),star_size+3);
 		setMinimumSize(d);
 		setPreferredSize(d);
 		
@@ -128,7 +131,7 @@ public class PriorityPicker extends JPanel {
 		Priority old= this.priority;
 		this.priority = priority;
 		firePropertyChange(PRIORITY_PROPERTY_NAME, old, priority);
-		setToolTipText("Priority: "+priority);
+		setToolTipText(Messages.getString("PriorityPicker.Priority")+" "+priority); //$NON-NLS-1$ //$NON-NLS-2$
 		repaint();
 	}
 
@@ -143,8 +146,8 @@ public class PriorityPicker extends JPanel {
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
 		
-		int space= (getWidth()-3*16)/6;
-		int top= (getHeight()-16)/2;
+		int space= (getWidth()-3*star_size)/6;
+		int top= (getHeight()-star_size)/2;
 		
 		Icon i1= grey;
 		Icon i2= grey;
@@ -174,8 +177,8 @@ public class PriorityPicker extends JPanel {
 		}
 		
 		i1.paintIcon(this, g, space, top);
-		i2.paintIcon(this, g, space*3+16, top);
-		i3.paintIcon(this, g, space*5+16*2, top);
+		i2.paintIcon(this, g, space*3+star_size, top);
+		i3.paintIcon(this, g, space*5+star_size*2, top);
 		
 	}
 	
@@ -199,7 +202,7 @@ public class PriorityPicker extends JPanel {
 			return;
 		}
 		this.hover = hover;
-		setToolTipText("Priority: "+(hover!=null?hover:priority));
+		setToolTipText(Messages.getString("PriorityPicker.Priority")+" "+(hover!=null?hover:priority)); //$NON-NLS-1$ //$NON-NLS-2$
 
 		if (repaint) {
 			repaint();

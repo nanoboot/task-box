@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -24,8 +24,11 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
+import java.awt.print.PrinterException;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.text.MessageFormat;
+import java.util.Date;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
@@ -34,11 +37,14 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
+import javax.swing.JTable.PrintMode;
 import javax.swing.border.TitledBorder;
 
 import org.gtdfree.ApplicationHelper;
 import org.gtdfree.GTDFreeEngine;
 import org.gtdfree.GlobalProperties;
+import org.gtdfree.Messages;
+import org.gtdfree.model.ActionsCollection;
 import org.gtdfree.model.Folder;
 import org.gtdfree.model.FolderEvent;
 import org.gtdfree.model.GTDModelAdapter;
@@ -49,7 +55,7 @@ import org.gtdfree.model.Action.Resolution;
  * @author ikesan
  *
  */
-public class ProcessPane extends JSplitPane {
+public class ProcessPane extends JSplitPane implements WorkflowPane {
 
 	private static final long serialVersionUID = 1L;
 
@@ -66,6 +72,10 @@ public class ProcessPane extends JSplitPane {
 
 	private JLabel leftLabel;
 
+	private JLabel idLabel;
+
+	private StopwatchPanel stopwatch;
+
 
 	/**
 	 * @return the engine
@@ -75,107 +85,134 @@ public class ProcessPane extends JSplitPane {
 	}
 
 	public ProcessPane() {
-		initialize();
+		//initialize();
 	}
 
 	private void initialize() {
 		
 		setOrientation(JSplitPane.VERTICAL_SPLIT);
-		setDividerLocation(75);
 		
-		JPanel jp= new JPanel();
-		jp.setLayout(new GridBagLayout());
+		JPanel jp1= new JPanel();
+		jp1.setLayout(new GridBagLayout());
 		
 		JPanel jpp= new JPanel();
 		jpp.setLayout(new GridBagLayout());
-		jpp.setBorder(new TitledBorder("In-Bucket"));
+		jpp.setBorder(new TitledBorder(Messages.getString("ProcessPane.InB"))); //$NON-NLS-1$
+		
+		idLabel= new JLabel(); //$NON-NLS-1$
+		idLabel.setText(Messages.getString("ActionPanel.ID")+" "+Messages.getString("ActionPanel.NA")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		jpp.add(idLabel, new GridBagConstraints(0,0,3,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,4,0,4),0,0));
+		
 		actionSpinner= new ActionSpinner();
-		actionSpinner.addPropertyChangeListener("selectedAction", new PropertyChangeListener() {
+		actionSpinner.addPropertyChangeListener("selectedAction", new PropertyChangeListener() { //$NON-NLS-1$
 		
 			public void propertyChange(PropertyChangeEvent evt) {
 				boolean b= actionSpinner.getSelectedAction()!=null;
 				getDeleteAction().setEnabled(b);
 				getResolveAction().setEnabled(b);
 				
+				if (b) {
+					String s= Messages.getString("ActionPanel.ID")+" "+actionSpinner.getSelectedAction().getId(); //$NON-NLS-1$ //$NON-NLS-2$
+					idLabel.setText(s);
+					stopwatch.reset();
+				} else {
+					idLabel.setText(Messages.getString("ActionPanel.ID")+" "+Messages.getString("ActionPanel.NA")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+					stopwatch.stop();
+				}
+
 				b= b && folders.getSelectedFolder()!=null;
 				getMoveAction().setEnabled(b);
+				
 			}
 		
 		});
 		
-		jpp.add(actionSpinner,new GridBagConstraints(0,0,3,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(4,4,0,4),0,0));
-		//jpp.setMinimumSize(new Dimension(100,actionSpinner.getRowHeight()+41));
+		jpp.add(actionSpinner,new GridBagConstraints(0,1,3,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(0,4,0,4),0,0));
 
 		leftLabel= new JLabel();
-		jpp.add(leftLabel,new GridBagConstraints(0,1,1,1,1,0,GridBagConstraints.WEST,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
+		leftLabel.setToolTipText(Messages.getString("ProcessPane.Left")); //$NON-NLS-1$
+		jpp.add(leftLabel,new GridBagConstraints(0,2,1,1,1,0,GridBagConstraints.WEST,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
 
 		JButton b = new JButton(getResolveAction());
-		jpp.add(b,new GridBagConstraints(0,1,1,1,1,0,GridBagConstraints.EAST,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
+		b.setMargin(ApplicationHelper.getDefaultFatButtonMargin());
+		jpp.add(b,new GridBagConstraints(0,2,1,1,1,0,GridBagConstraints.EAST,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
 		
 		b = new JButton(getDeleteAction());
-		jpp.add(b,new GridBagConstraints(1,1,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
+		b.setMargin(ApplicationHelper.getDefaultFatButtonMargin());
+		jpp.add(b,new GridBagConstraints(1,2,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
 
 		b = new JButton(getMoveAction());
-		jpp.add(b,new GridBagConstraints(2,1,1,1,1,0,GridBagConstraints.WEST,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
+		b.setMargin(ApplicationHelper.getDefaultFatButtonMargin());
+		jpp.add(b,new GridBagConstraints(2,2,1,1,1,0,GridBagConstraints.WEST,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
 
-		jp.add(jpp,new GridBagConstraints(0,0,3,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(4,4,0,4),0,0));
-		jp.setMinimumSize(new Dimension(200,100));
-		jp.setPreferredSize(new Dimension(200,100));
+		stopwatch= new StopwatchPanel();
+		jpp.add(stopwatch,new GridBagConstraints(2,2,1,1,1,0,GridBagConstraints.EAST,GridBagConstraints.NONE,new Insets(4,4,4,4),0,0));
 		
-		setLeftComponent(jp);
+		
+		jp1.add(jpp,new GridBagConstraints(0,0,3,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(4,4,0,4),0,0));
+		jp1.setMinimumSize(new Dimension(200,100));
+		jp1.setPreferredSize(new Dimension(200,100));
+		
 		
 		split= new JSplitPane();
 		split.setOrientation(JSplitPane.HORIZONTAL_SPLIT);
 		split.setResizeWeight(0);
 		
-		jp= new JPanel();
-		jp.setBorder(new TitledBorder("Lists"));
-		jp.setLayout(new GridBagLayout());
+		JPanel jp2= new JPanel();
+		jp2.setBorder(new TitledBorder(Messages.getString("ProcessPane.Lists"))); //$NON-NLS-1$
+		jp2.setLayout(new GridBagLayout());
 		
 		folders= new FolderPanel();
 		folders.setDefaultFoldersVisible(false);
-		folders.addPropertyChangeListener("selectedFolder", new PropertyChangeListener() {
+		folders.addPropertyChangeListener("selectedFolder", new PropertyChangeListener() { //$NON-NLS-1$
 		
 			public void propertyChange(PropertyChangeEvent evt) {
 				actionTable.setFolder(folders.getSelectedFolder());
+				int i= folders.getLastDroppedActionIndex();
+				if (i>-1 && actionTable.getRowCount()>0) {
+					if (i>=actionTable.getRowCount()) i= actionTable.getRowCount()-1;
+					actionTable.setRowSelectionInterval(i, i);
+				}
 				getMoveAction().setEnabled(actionSpinner.getSelectedAction()!=null && folders.getSelectedFolder()!=null);
 			}
 		
 		});
-		jp.add(folders,new GridBagConstraints(0,0,2,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(4,4,4,4),0,0));
+		jp2.add(folders,new GridBagConstraints(0,0,2,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(4,4,4,4),0,0));
 		
-		split.setLeftComponent(jp);
+		split.setLeftComponent(jp2);
 		
 		
-		jp = new JPanel();
-		jp.setLayout(new GridBagLayout());
+		JPanel jp3 = new JPanel();
+		jp3.setLayout(new GridBagLayout());
 		
 		actionPanel= new ActionPanel(false);
-		actionPanel.setBorder(new TitledBorder("Selected Action"));
+		actionPanel.setBorder(new TitledBorder(Messages.getString("ProcessPane.Sel"))); //$NON-NLS-1$
 		actionPanel.setDescriptionTextMinimumHeight(48);
-		jp.add(actionPanel,new GridBagConstraints(0,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(0,4,0,0),0,0));
+		jp3.add(actionPanel,new GridBagConstraints(0,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(0,4,0,0),0,0));
 
 		actionTable= new ActionTable();
 		actionTable.setMoveEnabled(true);
-		actionTable.addPropertyChangeListener("selectedAction",new PropertyChangeListener() {
+		actionTable.addPropertyChangeListener(ActionTable.SELECTED_ACTIONS_PROPERTY_NAME,new PropertyChangeListener() {
 			public void propertyChange(PropertyChangeEvent evt) {
-				actionPanel.setAction(actionTable.getSelectedAction());
+				actionPanel.setActions(actionTable.getSelectedActions());
 			}
 		});
 		JScrollPane jsp = new JScrollPane(actionTable);
-		jp.add(jsp,new GridBagConstraints(0,1,1,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(4,4,4,4),0,0));
+		jp3.add(jsp,new GridBagConstraints(0,1,1,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(4,4,4,4),0,0));
 		
-		split.setRightComponent(jp);
+		split.setRightComponent(jp3);
 		split.setDividerLocation(210);
 		split.setPreferredSize(new Dimension(200,200));
 		split.setMinimumSize(new Dimension(200,200));
 		
+		
+		actionPanel.addSwingActions(actionTable.getActionMap());
+		actionTable.addSwingActions(actionPanel.getActionMap());
+
+		setLeftComponent(jp1);
 		setRightComponent(split);
 		setDividerLocation(140);
-		//packLayout();
-		
-		actionPanel.putActions(actionTable.getActionMap());
-		
+
 	}
 
 	public void packLayout() {
@@ -184,7 +221,7 @@ public class ProcessPane extends JSplitPane {
 
 	private Action getMoveAction() {
 		if (moveAction == null) {
-			moveAction = new AbstractAction("Move to Selected List",ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_move)) {
+			moveAction = new AbstractAction(Messages.getString("ProcessPane.Move"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_move)) { //$NON-NLS-1$
 				private static final long serialVersionUID = -8908528493980828208L;
 
 				public void actionPerformed(ActionEvent e) {
@@ -207,7 +244,7 @@ public class ProcessPane extends JSplitPane {
 
 	private Action getDeleteAction() {
 		if (deleteAction == null) {
-			deleteAction = new AbstractAction("Delete",ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_delete)) {
+			deleteAction = new AbstractAction(Messages.getString("ProcessPane.Delete"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_delete)) { //$NON-NLS-1$
 				private static final long serialVersionUID = 5483273497818329289L;
 
 				public void actionPerformed(ActionEvent e) {
@@ -229,7 +266,7 @@ public class ProcessPane extends JSplitPane {
 
 	private Action getResolveAction() {
 		if (resolveAction == null) {
-			resolveAction = new AbstractAction("Resolve",ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_resolve)){
+			resolveAction = new AbstractAction(Messages.getString("ProcessPane.Resolve"),ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_resolve)){ //$NON-NLS-1$
 				private static final long serialVersionUID = 1L;
 
 				public void actionPerformed(ActionEvent e) {
@@ -254,6 +291,15 @@ public class ProcessPane extends JSplitPane {
 		folders.setEngine(getEngine());
 		actionPanel.setEngine(engine);
 		actionTable.setEngine(engine);
+		actionSpinner.setEngine(engine);
+		
+		engine.addPropertyChangeListener("aborting", new PropertyChangeListener() { //$NON-NLS-1$
+		
+			@Override
+			public void propertyChange(PropertyChangeEvent evt) {
+				stopwatch.stop();
+			}
+		});
 		
 		engine.getGTDModel().addGTDModelListener(new GTDModelAdapter() {
 		
@@ -275,7 +321,7 @@ public class ProcessPane extends JSplitPane {
 			
 			@Override
 			public void elementModified(org.gtdfree.model.ActionEvent a) {
-				if (a.getAction().getFolder().isInBucket()) {
+				if (a.getAction().getParent().isInBucket()) {
 					checkLeft();
 				}
 			}
@@ -295,32 +341,60 @@ public class ProcessPane extends JSplitPane {
 	}
 	
 	private void checkLeft() {
-		leftLabel.setText("Items to process: "+engine.getGTDModel().getInBucketFolder().getOpenCount());
+		leftLabel.setText(Messages.getString("ProcessPane.Items")+" "+engine.getGTDModel().getInBucketFolder().getOpenCount()); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 
 	public void store(GlobalProperties p) {
-		p.putProperty("process.dividerLocation1",getDividerLocation());
-		p.putProperty("process.dividerLocation2",split.getDividerLocation());
-		p.putProperty("process.tree.openNodes",folders.getExpendedNodes());
-		p.putProperty("organize.tree.foldingStates", folders.getFoldingStates());
+		p.putProperty("process.dividerLocation1",getDividerLocation()); //$NON-NLS-1$
+		p.putProperty("process.dividerLocation2",split.getDividerLocation()); //$NON-NLS-1$
+		p.putProperty("process.tree.openNodes",folders.getExpendedNodes()); //$NON-NLS-1$
+		p.putProperty("organize.tree.foldingStates", folders.getFoldingStates()); //$NON-NLS-1$
 	}
 
 	public void restore(GlobalProperties p) {
-		Integer i= p.getInteger("process.dividerLocation1");
+		Integer i= p.getInteger("process.dividerLocation1"); //$NON-NLS-1$
 		if (i!=null) {
 			setDividerLocation(i);
 		}
-		i= p.getInteger("process.dividerLocation2");
+		i= p.getInteger("process.dividerLocation2"); //$NON-NLS-1$
 		if (i!=null) {
 			split.setDividerLocation(i);
 		}
-		int[] ii= p.getIntegerArray("process.tree.openNodes");
+		int[] ii= p.getIntegerArray("process.tree.openNodes"); //$NON-NLS-1$
 		if (ii!=null) {
 			folders.setExpendedNodes(ii);
 		}
-		boolean[] bb= p.getBooleanArray("organize.tree.foldingStates");
+		boolean[] bb= p.getBooleanArray("organize.tree.foldingStates"); //$NON-NLS-1$
 		if (bb!=null) {
 			folders.setFoldingStates(bb);
 		}
+	}
+	
+	@Override
+	public ActionsCollection getActionsInView() {
+		return new ActionsCollection(actionTable);
+	}
+	
+	public void printTable() throws PrinterException {
+		if (actionTable.getFolder()!=null) {
+			actionTable.print(PrintMode.FIT_WIDTH, new MessageFormat("GTD-Free Data - "+actionTable.getFolder().getName()+" - "+ApplicationHelper.toISODateTimeString(new Date())), new MessageFormat("Page - {0}")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		}
+	}
+	
+	@Override
+	public void initialize(GTDFreeEngine engine) {
+		initialize();
+		setEngine(engine);
+		restore(engine.getGlobalProperties());
+	}
+
+	@Override
+	public boolean isInitialized() {
+		return engine!=null;
+	}
+	
+	@Override
+	public Folder getSelectedFolder() {
+		return folders.getSelectedFolder();
 	}
 }

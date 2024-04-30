@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -47,6 +47,7 @@ import javax.swing.event.DocumentListener;
 
 import org.gtdfree.ApplicationHelper;
 import org.gtdfree.GTDFreeEngine;
+import org.gtdfree.Messages;
 import org.gtdfree.model.DescriptionFilter;
 import org.gtdfree.model.FilterList;
 import org.gtdfree.model.Priority;
@@ -86,18 +87,18 @@ public class FilterPanel extends AbstractFilterPanel {
 		
 		int col=0;
 		
-		String tt= "Filter which actions to show in table";
+		String tt= Messages.getString("FilterPanel.Desc"); //$NON-NLS-1$
 		setToolTipText(tt);
 		
-		JLabel jl= new JLabel("Filter: ");
+		JLabel jl= new JLabel(Messages.getString("FilterPanel.Filter")+" "); //$NON-NLS-1$ //$NON-NLS-2$
 		jl.setToolTipText(tt);
 		//jl.setMinimumSize(new Dimension(0,0));
 		add(jl,new GridBagConstraints(col,0,1,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,0,0,0),0,0));
 		
-		filterProject= new JCheckBox("Project is: ");
+		filterProject= new JCheckBox(Messages.getString("FilterPanel.Project")+" "); //$NON-NLS-1$ //$NON-NLS-2$
 		int w= filterProject.getPreferredSize().height-5;
 		filterProject.setMinimumSize(new Dimension(w,w));
-		tt= "Show actions from selected project.";
+		tt= Messages.getString("FilterPanel.Project.desc"); //$NON-NLS-1$
 		filterProject.setToolTipText(tt);
 		filterProject.addItemListener(new ItemListener() {
 			@Override
@@ -112,9 +113,10 @@ public class FilterPanel extends AbstractFilterPanel {
 		projects.setEditable(false);
 		projects.setEnabled(false);
 		projects.setToolTipText(tt);
-		projects.addItemListener(new ItemListener() {
+		projects.addPropertyChangeListener(ProjectsCombo.SELECTED_PROJECT_PROPERTY_NAME,new PropertyChangeListener() {
+		
 			@Override
-			public void itemStateChanged(ItemEvent e) {
+			public void propertyChange(PropertyChangeEvent evt) {
 				if (isEnabled() && filterProject.isSelected()) {
 					fireSearch();
 				}
@@ -122,10 +124,10 @@ public class FilterPanel extends AbstractFilterPanel {
 		});
 		add(projects,new GridBagConstraints(++col,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,0,0,8),0,0));
 		
-		filterPriority= new JCheckBox("Priority at least: ");
+		filterPriority= new JCheckBox(Messages.getString("FilterPanel.Priority")+" "); //$NON-NLS-1$ //$NON-NLS-2$
 		w= filterPriority.getPreferredSize().height-5;
 		filterPriority.setMinimumSize(new Dimension(w,w));
-		tt= "Show actions with priority higher or equal to selected priority level.";
+		tt= Messages.getString("FilterPanel.Priority.desc"); //$NON-NLS-1$
 		filterPriority.setToolTipText(tt);
 		filterPriority.addItemListener(new ItemListener() {
 		
@@ -234,7 +236,7 @@ public class FilterPanel extends AbstractFilterPanel {
 		};
 		bg= criterionText.getBackground();
 		criterionText.setOpaque(true);
-		criterionText.setToolTipText("Show actions containing text.");
+		criterionText.setToolTipText(Messages.getString("FilterPanel.Text")); //$NON-NLS-1$
 		criterionText.getDocument().addDocumentListener(new DocumentListener() {
 		
 			public void removeUpdate(DocumentEvent e) {

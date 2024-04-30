@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -82,10 +82,10 @@ public class ConsistencyException extends Exception {
 		sb.append('\n');
 		if (actions!=null) {
 			if (actions.length==1) {
-				sb.append("Action:\n");
+				sb.append("Action:\n"); //$NON-NLS-1$
 				append(sb, actions[0]);
 			} else {
-				sb.append("Actions:\n");
+				sb.append("Actions:\n"); //$NON-NLS-1$
 				for (int i = 0; i < actions.length; i++) {
 					append(sb, actions[i]);
 				}
@@ -94,10 +94,10 @@ public class ConsistencyException extends Exception {
 		}
 		if (folders!=null) {
 			if (folders.length==1) {
-				sb.append("List:\n");
+				sb.append("List:\n"); //$NON-NLS-1$
 				append(sb, folders[0]);
 			} else {
-				sb.append("Lists:\n");
+				sb.append("Lists:\n"); //$NON-NLS-1$
 				for (int i = 0; i < folders.length; i++) {
 					append(sb, folders[i]);
 				}
@@ -106,10 +106,10 @@ public class ConsistencyException extends Exception {
 		}
 		if (projects!=null) {
 			if (projects.length==1) {
-				sb.append("Project:\n");
+				sb.append("Project:\n"); //$NON-NLS-1$
 				append(sb, projects[0]);
 			} else {
-				sb.append("Projects:\n");
+				sb.append("Projects:\n"); //$NON-NLS-1$
 				for (int i = 0; i < projects.length; i++) {
 					append(sb, projects[i]);
 				}
@@ -117,42 +117,42 @@ public class ConsistencyException extends Exception {
 			sb.append('\n');
 		}
 		
-		return super.toString();
+		return sb.toString();
 	}
 	
 	private void append(StringBuilder sb, Action a) {
-		sb.append("ID=");
+		sb.append("ID="); //$NON-NLS-1$
 		sb.append(a.getId());
-		sb.append(" status=");
+		sb.append(" status="); //$NON-NLS-1$
 		sb.append(a.getResolution());
-		sb.append(" desc='");
+		sb.append(" desc='"); //$NON-NLS-1$
 		if (a.getDescription()!=null) {
 			if (a.getDescription().length()>15) {
 				sb.append(a.getDescription().substring(0,11));
-				sb.append("...'\n");
+				sb.append("...'\n"); //$NON-NLS-1$
 			} else {
 				sb.append(a.getDescription());
-				sb.append("'\n");
+				sb.append("'\n"); //$NON-NLS-1$
 			}
 		} else {
-			sb.append("'\n");
+			sb.append("'\n"); //$NON-NLS-1$
 		}
 	}
 	
 	private void append(StringBuilder sb, Folder a) {
-		sb.append("ID=");
+		sb.append("ID="); //$NON-NLS-1$
 		sb.append(a.getId());
-		sb.append(" name=");
+		sb.append(" name="); //$NON-NLS-1$
 		sb.append(a.getName());
-		sb.append(" type=");
+		sb.append(" type="); //$NON-NLS-1$
 		sb.append(a.getType());
 		sb.append('\n');
 	}
 
 	private void append(StringBuilder sb, Project a) {
-		sb.append("ID=");
+		sb.append("ID="); //$NON-NLS-1$
 		sb.append(a.getId());
-		sb.append(" name=");
+		sb.append(" name="); //$NON-NLS-1$
 		sb.append(a.getName());
 		sb.append('\n');
 	}

@@ -18,8 +18,8 @@ License: BSD
 Modified: no
 Home: http://www.jgoodies.com
 
-Library: Apache Commons Lang
+Library: Apache Commons
 Copyright: 2001-2008 The Apache Software Foundation
 License: Apache License 2.0
 Modified: no
-Home: http://commons.apache.org/lang/
+Home: http://commons.apache.org/

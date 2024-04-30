@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -44,6 +44,7 @@ import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JToggleButton;
 
+import org.gtdfree.Messages;
 import org.gtdfree.model.RemindFilter;
 import org.gtdfree.model.Utils;
 
@@ -232,8 +233,8 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 	private DateFormatSymbols symbols= DateFormatSymbols.getInstance(Locale.ENGLISH);
 	private Map<Integer, DayOfMonthToggleButton> daysOfMonth= new HashMap<Integer,DayOfMonthToggleButton>(31);
 	private Map<Integer, MonthToggleButton> months= new HashMap<Integer, MonthToggleButton>(12);
-	private SimpleDateFormat dayFormat= new SimpleDateFormat("EEE, d MMM yyyy");
-	private SimpleDateFormat monthFormat= new SimpleDateFormat("MMMM yyyy");
+	private SimpleDateFormat dayFormat= new SimpleDateFormat("EEE, d MMM yyyy"); //$NON-NLS-1$
+	private SimpleDateFormat monthFormat= new SimpleDateFormat("MMMM yyyy"); //$NON-NLS-1$
 	private JPanel weekPanel;
 	private JPanel monthPanel;
 	private JPanel yearPanel;
@@ -267,19 +268,19 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 		};
 		criterions.setLayout(cards);
 		
-		JLabel jl= new JLabel("Tickler view: ");
+		JLabel jl= new JLabel(Messages.getString("TickleFilterPanel.Tickler")+" "); //$NON-NLS-1$ //$NON-NLS-2$
 		add(jl, new GridBagConstraints(0,0,1,1,1,0,GridBagConstraints.WEST,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
 		
 		viewGroup= new ButtonGroup();
 		
-		allRadio= new JRadioButton("All");
-		allRadio.setToolTipText("Shows all actions in list");
+		allRadio= new JRadioButton(Messages.getString("TickleFilterPanel.All")); //$NON-NLS-1$
+		allRadio.setToolTipText(Messages.getString("TickleFilterPanel.All.desc")); //$NON-NLS-1$
 		allRadio.setSelected(true);
 		allRadio.addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				if (e.getStateChange()==ItemEvent.SELECTED) {
-					cards.show(criterions, "All");
+					cards.show(criterions, Messages.getString("TickleFilterPanel.All")); //$NON-NLS-1$
 					fireSearch(null);
 				}
 			}
@@ -287,13 +288,13 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 		viewGroup.add(allRadio);
 		add(allRadio, new GridBagConstraints(0,0,1,1,0,0,GridBagConstraints.EAST,GridBagConstraints.NONE,new Insets(0,8,0,0),0,0));
 
-		pastRadio= new JRadioButton("Past");
-		pastRadio.setToolTipText("Shows actions past reminder date");
+		pastRadio= new JRadioButton(Messages.getString("TickleFilterPanel.Past")); //$NON-NLS-1$
+		pastRadio.setToolTipText(Messages.getString("TickleFilterPanel.Past.desc")); //$NON-NLS-1$
 		pastRadio.addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				if (e.getStateChange()==ItemEvent.SELECTED) {
-					cards.show(criterions, "Past");
+					cards.show(criterions, Messages.getString("TickleFilterPanel.Past")); //$NON-NLS-1$
 					fireSearchPast(Utils.today());
 				}
 			}
@@ -301,13 +302,13 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 		viewGroup.add(pastRadio);
 		add(pastRadio, new GridBagConstraints(1,0,1,1,0,0,GridBagConstraints.EAST,GridBagConstraints.NONE,new Insets(0,8,0,0),0,0));
 		
-		weekRadio= new JRadioButton("Week");
-		weekRadio.setToolTipText("Shows actions with reminder date set in next seven days");
+		weekRadio= new JRadioButton(Messages.getString("TickleFilterPanel.Week")); //$NON-NLS-1$
+		weekRadio.setToolTipText(Messages.getString("TickleFilterPanel.Week.desc")); //$NON-NLS-1$
 		weekRadio.addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				if (e.getStateChange()==ItemEvent.SELECTED) {
-					cards.show(criterions, "Week");
+					cards.show(criterions, Messages.getString("TickleFilterPanel.Week")); //$NON-NLS-1$
 					updateWeekPanel();
 				}
 			}
@@ -315,13 +316,13 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 		viewGroup.add(weekRadio);
 		add(weekRadio, new GridBagConstraints(2,0,1,1,0,0,GridBagConstraints.EAST,GridBagConstraints.NONE,new Insets(0,8,0,0),0,0));
 		
-		monthRadio= new JRadioButton("Month");
-		monthRadio.setToolTipText("Shows actions with reminder date set within a month");
+		monthRadio= new JRadioButton(Messages.getString("TickleFilterPanel.Month")); //$NON-NLS-1$
+		monthRadio.setToolTipText(Messages.getString("TickleFilterPanel.Month.desc")); //$NON-NLS-1$
 		monthRadio.addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				if (e.getStateChange()==ItemEvent.SELECTED) {
-					cards.show(criterions, "Month");
+					cards.show(criterions, Messages.getString("TickleFilterPanel.Month")); //$NON-NLS-1$
 					updateMonthPanel();
 					doLayout();
 				}
@@ -330,13 +331,13 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 		viewGroup.add(monthRadio);
 		add(monthRadio, new GridBagConstraints(3,0,1,1,0,0,GridBagConstraints.EAST,GridBagConstraints.NONE,new Insets(0,8,0,0),0,0));
 
-		yearRadio= new JRadioButton("Year");
-		yearRadio.setToolTipText("Shows actions with reminder date set within a year");
+		yearRadio= new JRadioButton(Messages.getString("TickleFilterPanel.Year")); //$NON-NLS-1$
+		yearRadio.setToolTipText(Messages.getString("TickleFilterPanel.Year.desc")); //$NON-NLS-1$
 		yearRadio.addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				if (e.getStateChange()==ItemEvent.SELECTED) {
-					cards.show(criterions, "Year");
+					cards.show(criterions, Messages.getString("TickleFilterPanel.Year")); //$NON-NLS-1$
 					updateYearPanel();
 				}
 			}
@@ -345,8 +346,8 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 		add(yearRadio, new GridBagConstraints(4,0,1,1,0,0,GridBagConstraints.EAST,GridBagConstraints.NONE,new Insets(0,8,0,0),0,0));
 		
 		
-		criterions.add(new JPanel(),"All");
-		criterions.add(new JPanel(),"Past");
+		criterions.add(new JPanel(),Messages.getString("TickleFilterPanel.All")); //$NON-NLS-1$
+		criterions.add(new JPanel(),Messages.getString("TickleFilterPanel.Past")); //$NON-NLS-1$
 		
 		weekPanel= new JPanel();
 		weekPanel.setLayout(new GridBagLayout());
@@ -372,7 +373,7 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 				}
 			}
 		});
-		criterions.add(weekPanel,"Week");
+		criterions.add(weekPanel,Messages.getString("TickleFilterPanel.Week")); //$NON-NLS-1$
 		
 		monthPanel= new JPanel();
 		monthPanel.setLayout(new GridBagLayout());
@@ -406,7 +407,7 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 		};
 		jsp.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 		jsp.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
-		criterions.add(jsp,"Month");
+		criterions.add(jsp,Messages.getString("TickleFilterPanel.Month")); //$NON-NLS-1$
 
 		yearPanel= new JPanel();
 		yearPanel.setLayout(new GridBagLayout());
@@ -432,7 +433,7 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 			MonthToggleButton tb= new MonthToggleButton(names[i]);
 			months.put(i, tb);
 		}
-		criterions.add(yearPanel,"Year");
+		criterions.add(yearPanel,Messages.getString("TickleFilterPanel.Year")); //$NON-NLS-1$
 
 		add(criterions, new GridBagConstraints(0,1,5,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(0,0,0,0),0,0));
 	

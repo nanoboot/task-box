@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -31,6 +31,7 @@ import javax.swing.JTable;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 
+import org.gtdfree.Messages;
 import org.gtdfree.model.Action;
 import org.gtdfree.model.Folder;
 import org.gtdfree.model.GTDModel;
@@ -60,7 +61,7 @@ public class ActionFolderList extends JTable {
 	
 	class FolderTableModel extends AbstractTableModel implements Comparator<Folder> {
 		
-		private static final long serialVersionUID = -3898990048337029213L;
+		private static final long serialVersionUID = 1L;
 		List<Folder> data = new ArrayList<Folder>();
 
 		public int addFolder(Folder f) {
@@ -111,7 +112,7 @@ public class ActionFolderList extends JTable {
 		
 		@Override
 		public String getColumnName(int column) {
-			return "Lists";
+			return Messages.getString("ActionFolderList.Lists"); //$NON-NLS-1$
 		}
 		
 		@Override
@@ -138,6 +139,7 @@ public class ActionFolderList extends JTable {
 	
 	private GTDModel gtdModel;
 	private FolderTableModel model= new FolderTableModel();
+	private ActionTransferHandler transferHandler;
 	
 	public ActionFolderList() {
 		initialize();
@@ -157,25 +159,35 @@ public class ActionFolderList extends JTable {
 		setRowHeight(fm.getHeight()+3);
 		//getTableHeader().setVisible(false);
 		
-		setTransferHandler(new ActionTransferHandler() {
+		setTransferHandler(transferHandler= new ActionTransferHandler() {
 		
 			private static final long serialVersionUID = 0L;
 
 			@Override
-			protected boolean importAction(int id, TransferSupport support) {
-				Action a= gtdModel.getAction(id);
+			protected boolean importActions(Action[] a, Folder source, int[] indexes, TransferSupport support) {
 				int i= rowAtPoint(support.getDropLocation().getDropPoint());
 				
 				if (i>-1 && a!=null) {
 					Folder target= model.getFolder(i);
-					gtdModel.moveAction(a, target);
+					gtdModel.moveActions(a, target);
 					return true;
 				}
 				return false;
 			}
 
 			@Override
-			protected Integer exportAction() {
+			protected Action[] exportActions() {
+				return null;
+			}
+			
+			@Override
+			protected int[] exportIndexes() {
+				return null;
+			}
+			
+			@Override
+			protected Folder exportSourceFolder() {
+				// TODO Auto-generated method stub
 				return null;
 			}
 		
@@ -194,6 +206,7 @@ public class ActionFolderList extends JTable {
 	public void setGTDModel(GTDModel m) {
 		this.gtdModel = m;
 		model.reload(m);
+		transferHandler.setModel(gtdModel);
 	}
 	
 	public Folder getSelectedFolder() {

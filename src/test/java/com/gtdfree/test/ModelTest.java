@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -20,6 +20,7 @@
 package com.gtdfree.test;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.util.Date;
 import java.util.HashMap;
@@ -32,6 +33,8 @@ import org.gtdfree.model.ActionEvent;
 import org.gtdfree.model.ConsistencyException;
 import org.gtdfree.model.Folder;
 import org.gtdfree.model.FolderEvent;
+import org.gtdfree.model.GTDDataODB;
+import org.gtdfree.model.GTDDataXMLTools;
 import org.gtdfree.model.GTDModel;
 import org.gtdfree.model.GTDModelListener;
 import org.gtdfree.model.Priority;
@@ -82,7 +85,8 @@ public class ModelTest extends TestCase {
 	GTDModel gtdModel;
 	Folder f1;
 	Project p1;
-	File testDir= new File("src/test/resources");
+	File testRoot= new File("src/test/resources");
+	File testDir= new File(testRoot,"tmp");
 
 	/* (non-Javadoc)
 	 * @see junit.framework.TestCase#setUp()
@@ -90,7 +94,9 @@ public class ModelTest extends TestCase {
 	@Override
 	protected void setUp() throws Exception {
 		
-		gtdModel= new GTDModel();
+		tearDown();
+		
+		gtdModel= setUpGTDModel(0);
 		
 		f1= gtdModel.createFolder("F1", FolderType.ACTION);
 		
@@ -149,7 +155,7 @@ public class ModelTest extends TestCase {
 		a1.setUrl(url);
 		
 		assertNotNull(a1.getUrl());
-		assertEquals(url, a1.getUrl());
+		assertEquals(url.toString(), a1.getUrl().toString());
 		
 		a2.setDescription(BAD_DESC);
 		
@@ -157,6 +163,36 @@ public class ModelTest extends TestCase {
 		
 	}
 	
+	@Override
+	protected void tearDown() throws Exception {
+		super.tearDown();
+		
+		tearDownGTDModel(0, gtdModel);
+		tearDownGTDModel(1, null);
+		tearDownGTDModel(2, null);
+		
+		File[] f= testDir.listFiles();
+		for (int i = 0; i < f.length; i++) {
+			if (f[i].isFile()) {
+				f[i].delete();
+			}
+		}
+	}
+	
+	public GTDModel setUpGTDModel(@SuppressWarnings("unused") int i) throws IOException {
+		return new GTDModel(null);
+	}
+
+	public void tearDownGTDModel(@SuppressWarnings("unused") int i, GTDModel m) {
+		if (m!=null) {
+			try {
+				m.getDataRepository().close(true);
+			} catch (Exception e) {
+				fail(e.getMessage());
+			}
+		}
+	}
+
 	public void testProjectChange() {
 		
 		TestModelListener ml= new TestModelListener();
@@ -314,23 +350,21 @@ public class ModelTest extends TestCase {
 		File f=null;
 		try {
 		
-			GTDModel m= new GTDModel();
+			GTDModel m= setUpGTDModel(1);
 			Folder f1= m.createFolder("F1", FolderType.ACTION);
 			f1.setClosed(true);
 	
 			f= new File(testDir,"test.xml");
-			
-			gtdModel.store(f);
-			
-			m.importFile(f);
-
+			gtdModel.exportXML(f);
+			GTDDataXMLTools.importFile(m,f);
 			checkConsistency(m);
-			
 			assertContentEquals(gtdModel,m);
 			
 			if (f!=null) {
 				f.delete();
 			}
+			
+			tearDownGTDModel(1, m);
 		
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -342,19 +376,21 @@ public class ModelTest extends TestCase {
 		File f=null;
 		try {
 		
-			GTDModel m= new GTDModel();
+			GTDModel m= setUpGTDModel(1);
 	
 			f= new File(testDir,"test.xml");
 			
-			gtdModel.store(f);
+			gtdModel.exportXML(f);
 			
-			m.load(f);
+			GTDDataXMLTools.importFile(m,f);
 			
 			checkConsistency(m);
 
 			assertContentEquals(gtdModel,m);
 			
-		
+
+			tearDownGTDModel(1, m);
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 			fail(e.getMessage());
@@ -365,28 +401,97 @@ public class ModelTest extends TestCase {
 		}
 	}
 
+	public void testLoadODB() {
+		File f=null;
+		File fodb= new File(testDir,"test.odb");
+		File fodbx= new File(testDir,"test.odb-xml");
+		try {
+		
+			fodb.delete();
+			fodbx.delete();
+			
+			GTDDataODB odb= new GTDDataODB(fodb);
+			GTDModel m= odb.restore();
+			odb.store();
+			odb.close(true);
+	
+			odb= new GTDDataODB(fodb);
+			m= odb.restore();
+			checkConsistency(m);
+			odb.store();
+			odb.close(true);
+
+			f= new File(testDir,"test.xml");
+			f.delete();
+
+			odb= new GTDDataODB(fodb);
+			m= odb.restore();
+			gtdModel.exportXML(f);
+			GTDDataXMLTools.load(m,f);
+			
+			checkConsistency(m);
+			assertContentEquals(gtdModel,m);
+			
+			odb.store();
+			odb.exportODB(fodbx);
+			odb.close(true);
+			
+			odb= new GTDDataODB(fodb);
+			m= odb.restore();
+			
+			checkConsistency(m);
+			assertContentEquals(gtdModel,m);
+
+			odb.close(false);
+			fodb.delete();
+			
+			odb= new GTDDataODB(fodb);
+			m= odb.restore();
+			
+			assertEquals(gtdModel.size()-2, m.size());
+			odb.importODB(fodbx);
+			
+			odb= new GTDDataODB(fodb);
+			m= odb.restore();
+			checkConsistency(m);
+			assertContentEquals(gtdModel,m);
+			
+			odb.close(false);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			fail(e.toString());
+		} finally {
+			if (f!=null) {
+				f.delete();
+			}
+		}
+	}
+
 	public void testLoadWIN1250() {
-		File f= new File(testDir,"gtd-free-data_WIN1250_2.1.xml");
-		File f1= new File(testDir,"gtd-free-data1.xml");
+		File f= new File(testRoot,"gtd-free-data_WIN1250_2.1.xml");
+		File f1= new File(testRoot,"gtd-free-data1.xml");
 
 		try {
 			
 		
-			GTDModel m1= new GTDModel();
-			GTDModel m2= new GTDModel();
+			GTDModel m1= setUpGTDModel(1);
+			GTDModel m2= setUpGTDModel(2);
 	
-			m1.load(f);
+			GTDDataXMLTools.load(m1,f);
 			
 			checkConsistency(m1);
 			
-			m1.store(f1);
+			m1.exportXML(f1);
 			
-			m2.load(f1);
+			GTDDataXMLTools.load(m2,f1);
 			
 			checkConsistency(m2);
 
 			assertContentEquals(m1,m2);
 			
+			tearDownGTDModel(1, m1);
+			tearDownGTDModel(2, m2);
 		
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -397,56 +502,70 @@ public class ModelTest extends TestCase {
 	}
 
 	public void testLoadVsImport() {
+
+		File f= new File(testDir,"gtd-free-data.testLoadVsImport.xml");
+		
 		try {
 			
-			File f= new File(testDir,"gtd-free-data.xml");
+			gtdModel.exportXML(f);
 		
-			GTDModel m1= new GTDModel();
-			GTDModel m2= new GTDModel();
+			GTDModel m1= setUpGTDModel(1);
+			GTDModel m2= setUpGTDModel(2);
 	
-			m1.load(f);
-			m2.importFile(f);
+			GTDDataXMLTools.load(m1,f);
+			GTDDataXMLTools.importFile(m2,f);
 			
 			checkConsistency(m1);
 			checkConsistency(m2);
 
+			assertContentEquals(gtdModel, m1);
+			assertContentEquals(gtdModel, m2);
 			assertContentEquals(m1,m2);
 			
-		
-		} catch (Exception e) {
-			e.printStackTrace();
-			fail(e.getMessage());
-		}
-	}
-
-	public void testLoadSaveLoad() {
-		File f= new File(testDir,"gtd-free-data.xml");
-		File f1= new File(testDir,"gtd-free-data1.xml");
-
-		try {
-			
-		
-			GTDModel m1= new GTDModel();
-			GTDModel m2= new GTDModel();
-	
-			m1.load(f);
-			
-			checkConsistency(m1);
-			
-			m1.store(f1);
-			
-			m2.load(f1);
-			
-			checkConsistency(m2);
-
-			assertContentEquals(m1,m2);
-			
+			tearDownGTDModel(1, m1);
+			tearDownGTDModel(2, m2);
 		
 		} catch (Exception e) {
 			e.printStackTrace();
 			fail(e.getMessage());
 		} finally {
+			f.delete();
+		}
+	}
+
+	public void testLoadSaveLoad() {
+		
+		File f= new File(testDir,"gtd-free-data.testLoadSaveLoad.xml");
+		File f1= new File(testDir,"gtd-free-data.testLoadSaveLoad1.xml");
+
+		try {
+			
+			gtdModel.exportXML(f);
+		
+			GTDModel m1= setUpGTDModel(1);
+			GTDModel m2= setUpGTDModel(2);
+	
+			GTDDataXMLTools.load(m1,f);
+			checkConsistency(m1);
+			assertContentEquals(gtdModel, m1);
+			
+			m1.exportXML(f1);
+			GTDDataXMLTools.load(m2,f1);
+			
+			checkConsistency(m2);
+
+			assertContentEquals(m1,m2);
+			
+			tearDownGTDModel(1, m1);
+			tearDownGTDModel(2, m2);
+		
+		} catch (Exception e) {
+			e.printStackTrace();
+			fail(e.getMessage());
+		} finally {
+			f.delete();
 			f1.delete();
+			
 		}
 	}
 
@@ -455,18 +574,19 @@ public class ModelTest extends TestCase {
 
 		try {
 
-			gtdModel.store(f);
+			gtdModel.exportXML(f);
 		
-			GTDModel m1= new GTDModel();
+			GTDModel m1= setUpGTDModel(1);
 	
-			m1.load(f);
-			
+			GTDDataXMLTools.load(m1,f);
 			checkConsistency(m1);
+			assertContentEquals(gtdModel, m1);
 	
 			assertEquals(BAD_DESC, m1.getFolder(f1.getId()).get(3).getDescription());
 			
 			assertContentEquals(gtdModel,m1);
 			
+			tearDownGTDModel(1, m1);
 		
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -477,28 +597,27 @@ public class ModelTest extends TestCase {
 	}
 
 	public void test21vs20() {
-		File f= new File(testDir,"gtd-free-data_2.0.xml");
-		File f1= new File(testDir,"test.xml");
+		File f= new File(testRoot,"gtd-free-data_2.0.xml");
+		File f1= new File(testRoot,"test.xml");
 
 		try {
 			
-		
-			GTDModel m1= new GTDModel();
-			GTDModel m2= new GTDModel();
+			GTDModel m1= setUpGTDModel(1);
+			GTDModel m2= setUpGTDModel(2);
 	
-			m1.load(f);
-			
+			GTDDataXMLTools.load(m1,f);
 			checkConsistency(m1);
 			
-			m1.store(f1);
+			m1.exportXML(f1);
 			
-			m2.load(f1);
+			GTDDataXMLTools.load(m2,f1);
 			
 			checkConsistency(m2);
 
 			assertContentEquals(m1,m2);
 			
-		
+			tearDownGTDModel(1, m1);
+			tearDownGTDModel(2, m2);
 		} catch (Exception e) {
 			e.printStackTrace();
 			fail(e.getMessage());
@@ -507,13 +626,16 @@ public class ModelTest extends TestCase {
 		}
 	}
 
-	private void assertContentEquals(GTDModel m1, GTDModel m2) {
+	protected void assertContentEquals(GTDModel m1, GTDModel m2) {
+		assertContentEquals(m1, m2, true, true);
+	}
+	protected void assertContentEquals(GTDModel m1, GTDModel m2, boolean matchActions, boolean matchProject) {
 		assertEquals(m1.size(), m2.size());
-		assertEquals(m1.projects().length,m2.projects().length);
-		assertEquals(m1.folders().length,m2.folders().length);
+		assertEquals(m1.toProjectsArray().length,m2.toProjectsArray().length);
+		assertEquals(m1.toFoldersArray().length,m2.toFoldersArray().length);
 		
-		Folder[] ff2= m2.folders();
-		Folder[] ff1= m1.folders();
+		Folder[] ff2= m2.toFoldersArray();
+		Folder[] ff1= m1.toFoldersArray();
 		
 		Map<String, Folder> m= new HashMap<String, Folder>();
 		
@@ -537,20 +659,24 @@ public class ModelTest extends TestCase {
 				}
 			}
 */			
-			assertEquals(f1.getName(),f1.size(), f2.size());
 			assertEquals(f1.getType(), f2.getType());
+			if (matchProject || !f1.isProject()) {
+				assertEquals(f1.getName(),f1.size(), f2.size());
+			}
 
-			if (!f1.isProject() && f1.getId()!=m1.getResolvedFolder().getId() && f1.getId()!=m1.getDeletedFolder().getId()) {
-				for (int i = 0; i < f1.size(); i++) {
-					Action a1= f1.get(i);
-					Action a2= f2.get(i);
-					assertEquals(f1.getName(),a1.getDescription(), a2.getDescription());
-					assertEquals(f1.getName(),a1.getUrl(), a2.getUrl());
-					assertEquals(f1.getName(),a1.getPriority(), a2.getPriority());
-					assertEquals(f1.getName(),a1.getRemind(), a2.getRemind());
-					if (a1.getProject()!=null) {
-						assertNotNull(a2.getProject());
-						assertEquals(m1.getProject(a1.getProject()).getName(), m2.getProject(a2.getProject()).getName());
+			if (matchActions) {
+				if (!f1.isProject() && f1.getId()!=m1.getResolvedFolder().getId() && f1.getId()!=m1.getDeletedFolder().getId()) {
+					for (int i = 0; i < f1.size(); i++) {
+						Action a1= f1.get(i);
+						Action a2= f2.get(i);
+						assertEquals(f1.getName(),a1.getDescription(), a2.getDescription());
+						assertEquals(f1.getName(),a1.getUrl(), a2.getUrl());
+						assertEquals(f1.getName(),a1.getPriority(), a2.getPriority());
+						assertEquals(f1.getName(),a1.getRemind(), a2.getRemind());
+						if (a1.getProject()!=null) {
+							assertNotNull(a2.getProject());
+							assertEquals(m1.getProject(a1.getProject()).getName(), m2.getProject(a2.getProject()).getName());
+						}
 					}
 				}
 			}
@@ -624,15 +750,23 @@ public class ModelTest extends TestCase {
 		}
 	}
 	
-	private void checkConsistency(GTDModel m) {
+	protected void checkConsistency(GTDModel m) {
 		
 		try {
-			GTDModel.checkConsistency(m);
+			GTDModel.checkConsistency(m,null,true,false);
 		} catch (ConsistencyException e) {
 			e.printStackTrace();
+			//System.out.println(e.getActions()[0]);
 			fail(e.toString());
 		}
 		
+		try {
+			m.getDataRepository().checkConsistency(null, true, false);
+		} catch (ConsistencyException e) {
+			e.printStackTrace();
+			//System.out.println(e.getActions()[0]);
+			fail(e.toString());
+		}
 	}
 
 }

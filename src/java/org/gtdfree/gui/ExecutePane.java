@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -20,23 +20,32 @@
 package org.gtdfree.gui;
 
 import java.awt.BorderLayout;
+import java.awt.print.PrinterException;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.text.MessageFormat;
+import java.util.Date;
 
+import javax.swing.ActionMap;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
+import javax.swing.JTable.PrintMode;
 import javax.swing.border.TitledBorder;
 
+import org.gtdfree.ApplicationHelper;
 import org.gtdfree.GTDFreeEngine;
 import org.gtdfree.GlobalProperties;
+import org.gtdfree.Messages;
 import org.gtdfree.gui.ActionTable.CellAction;
+import org.gtdfree.model.ActionsCollection;
+import org.gtdfree.model.Folder;
 
 /**
  * @author ikesan
  *
  */
-public class ExecutePane extends JPanel {
+public class ExecutePane extends JPanel implements WorkflowPane {
 	private static final long serialVersionUID = 1L;
 
 	private ActionPanel actionPanel;
@@ -46,7 +55,7 @@ public class ExecutePane extends JPanel {
 	private JSplitPane split;
 
 	public ExecutePane() {
-		initialize();
+		//initialize();
 	}
 
 	private void initialize() {
@@ -57,18 +66,18 @@ public class ExecutePane extends JPanel {
 		split.setOneTouchExpandable(true);
 		
 		actionPanel= new ActionPanel(false);
-		actionPanel.setBorder(new TitledBorder("Next Action"));
+		actionPanel.setBorder(new TitledBorder(Messages.getString("ExecutePane.NextA"))); //$NON-NLS-1$
 		
 		split.setTopComponent(actionPanel);
 		
 		queueTable= new ActionTable();
 		queueTable.setCellAction(CellAction.RESOLVE);
 		queueTable.setMoveEnabled(true);
-		queueTable.addPropertyChangeListener(ActionTable.SELECTED_ACTION_PROPERTY_NAME, new PropertyChangeListener() {
+		queueTable.addPropertyChangeListener(ActionTable.SELECTED_ACTIONS_PROPERTY_NAME, new PropertyChangeListener() {
 		
 			@Override
 			public void propertyChange(PropertyChangeEvent evt) {
-				actionPanel.setAction(queueTable.getSelectedAction());
+				actionPanel.setActions(queueTable.getSelectedActions());
 				/*if (queueTable.getSelectedAction()==null && queueTable.getRowCount()>0) {
 					queueTable.getSelectionModel().setSelectionInterval(0, 0);
 				}*/
@@ -78,14 +87,17 @@ public class ExecutePane extends JPanel {
 		
 		JPanel jp= new JPanel();
 		jp.setLayout(new BorderLayout());
-		jp.setBorder(new TitledBorder("Next Action Queue"));
+		jp.setBorder(new TitledBorder(Messages.getString("ExecutePane.NextQ"))); //$NON-NLS-1$
 		jp.add(new JScrollPane(queueTable));
 		
 		split.setBottomComponent(jp);
 		
-		add(split);
+		ActionMap am= new ActionMap();
 		
-		actionPanel.putActions(queueTable.getActionMap());
+		actionPanel.addSwingActions(queueTable.getActionMap());
+		queueTable.addSwingActions(actionPanel.getActionMap());
+
+		add(split);
 	}
 	
 	public void setEngine(GTDFreeEngine engine) {
@@ -103,13 +115,40 @@ public class ExecutePane extends JPanel {
 	}
 
 	public void store(GlobalProperties p) {
-		p.putProperty("execute.dividerLocation",split.getDividerLocation());
+		p.putProperty("execute.dividerLocation",split.getDividerLocation()); //$NON-NLS-1$
 	}
 
 	public void restore(GlobalProperties p) {
-		Integer i= p.getInteger("execute.dividerLocation");
+		Integer i= p.getInteger("execute.dividerLocation"); //$NON-NLS-1$
 		if (i!=null) {
 			split.setDividerLocation(i);
 		}
 	}
+	
+	@Override
+	public ActionsCollection getActionsInView() {
+		return new ActionsCollection(queueTable);
+	}
+	
+	public void printTable() throws PrinterException {
+		queueTable.print(PrintMode.FIT_WIDTH, new MessageFormat("GTD-Free Data - Next Action Queue - "+ApplicationHelper.toISODateTimeString(new Date())), new MessageFormat("Page - {0}")); //$NON-NLS-1$ //$NON-NLS-2$
+	}
+	
+	@Override
+	public void initialize(GTDFreeEngine engine) {
+		initialize();
+		setEngine(engine);
+		restore(engine.getGlobalProperties());
+	}
+	
+	@Override
+	public boolean isInitialized() {
+		return engine!=null;
+	}
+	
+	@Override
+	public Folder getSelectedFolder() {
+		return queueTable.getFolder();
+	}
+
 }

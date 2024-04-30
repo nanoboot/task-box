@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2008 Igor Kriznar
+ *    Copyright (C) 2008-2010 Igor Kriznar
  *    
  *    This file is part of GTD-Free.
  *    
@@ -39,7 +39,7 @@ import javax.swing.JPanel;
 public class TimeInputPanel extends JPanel {
 
 	private static final long serialVersionUID = 1L;
-	private static final String TIME_OF_DAY = "timeOfDay";
+	private static final String TIME_OF_DAY = "timeOfDay"; //$NON-NLS-1$
 
 	public static void main(String[] args) {
 		TimeInputPanel p= new TimeInputPanel();
@@ -93,7 +93,7 @@ public class TimeInputPanel extends JPanel {
 		}); 
 		
 		add(hour,new GridBagConstraints(0,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
-		add(new JLabel(":"),new GridBagConstraints(1,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
+		add(new JLabel(":"),new GridBagConstraints(1,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0)); //$NON-NLS-1$
 		add(minutes,new GridBagConstraints(2,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
 	}
 
