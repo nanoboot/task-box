@@ -179,7 +179,7 @@ public final class ApplicationHelper {
 			
 			if (dataFolder==null) {
 				dataFolder= new File(System.getProperty("user.home"));
-				dataFolder= new File(dataFolder,DEFAULT_DATA_FOLDER_NAME);
+				dataFolder= new File(dataFolder,System.getProperty("user.home.dir", DEFAULT_DATA_FOLDER_NAME));
 				
 				System.getProperties().setProperty(DATA_PROPERTY, dataFolder.toString());
 			}

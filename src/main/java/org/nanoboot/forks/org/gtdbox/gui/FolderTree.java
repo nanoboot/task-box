@@ -58,7 +58,7 @@ public class FolderTree extends JTree {
 	
 	private static final long serialVersionUID = 1L;
 
-	class SortedTreeNode extends DefaultMutableTreeNode implements Comparator<DefaultMutableTreeNode> {
+	class SortedTreeNode extends DefaultMutableTreeNode implements Comparator<TreeNode> {
 		
 		
 		private static final long serialVersionUID = 4899968443878756400L;
@@ -85,9 +85,15 @@ public class FolderTree extends JTree {
 			
 			Collections.sort(children, this);
 		}
-		public int compare(DefaultMutableTreeNode o1, DefaultMutableTreeNode o2) {
-			Object f1= o1.getUserObject();
-			Object f2= o2.getUserObject();
+		public int compare(TreeNode o1, TreeNode o2) {
+			if(!(o1 instanceof DefaultMutableTreeNode)) {
+				return 0;
+			}
+			if(!(o2 instanceof DefaultMutableTreeNode)) {
+				return 0;
+			}
+			Object f1= ((DefaultMutableTreeNode)o1).getUserObject();
+			Object f2= ((DefaultMutableTreeNode)o2).getUserObject();
 			if (f1 instanceof Folder && f2 instanceof Folder) {
 				return ((Folder)f1).getName().compareTo(((Folder)f2).getName());
 			}
@@ -359,7 +365,7 @@ public class FolderTree extends JTree {
 						model.nodeStructureChanged(p);
 					}
 				} else {
-					DefaultMutableTreeNode p= folderToNode(f.getFolder());
+					TreeNode p= folderToNode(f.getFolder());
 					if (p!=null) {
 						model.nodeChanged(p);
 					}
@@ -483,9 +489,9 @@ public class FolderTree extends JTree {
 		}
 		return r;
 	}
-	private DefaultMutableTreeNode removeFromTree(Folder f, boolean notify) {
-		DefaultMutableTreeNode dn= folderToNode(f);
-		if (dn!=null && dn.getUserObject()==f) {
+	private TreeNode removeFromTree(Folder f, boolean notify) {
+		TreeNode dn= folderToNode(f);
+		if (dn!=null && dn.getParent()==f) {
 			DefaultMutableTreeNode p= (DefaultMutableTreeNode)dn.getParent(); 
 			int[] id= {p.getIndex(dn)};
 			p.remove(id[0]);
@@ -500,16 +506,16 @@ public class FolderTree extends JTree {
 	}
 
 	@SuppressWarnings("unchecked")
-	public DefaultMutableTreeNode folderToNode(Folder f) {
-		Enumeration<DefaultMutableTreeNode> en=null;
+	public TreeNode folderToNode(Folder f) {
+		Enumeration<TreeNode> en=null;
 		DefaultMutableTreeNode p= folderToParentNode(f);
 		if (p!=null) {
 			en= p.children();
 		}
 		if (en!=null) {
 			while (en.hasMoreElements()) {
-				DefaultMutableTreeNode n= en.nextElement();
-				if (n.getUserObject()==f) {
+				TreeNode n= en.nextElement();
+				if (n.getParent()==f) {
 					return n;
 				}
 			}
@@ -671,9 +677,9 @@ public class FolderTree extends JTree {
 	}
 
 	public void setSelectedFolder(Folder f) {
-		DefaultMutableTreeNode n= folderToNode(f);
+		TreeNode n= folderToNode(f);
 		if (n!=null) {
-			setSelectionPath(new TreePath(folderToNode(f).getPath()));
+			setSelectionPath(new TreePath(folderToNode(f).getParent()));
 		}
 	}
 

@@ -77,6 +77,7 @@ import javax.swing.table.TableModel;
 import javax.xml.stream.FactoryConfigurationError;
 import javax.xml.stream.XMLStreamException;
 
+import com.formdev.flatlaf.FlatLightLaf;
 import org.nanoboot.forks.org.gtdbox.gui.ExecutePane;
 import org.nanoboot.forks.org.gtdbox.gui.ImportExampleDialog;
 import org.nanoboot.forks.org.gtdbox.gui.InBasketPane;
@@ -368,12 +369,15 @@ public class GTDBoxMain {
 		try {
 			if (System.getProperty("swing.crossplatformlaf")==null) {
 				//System.setProperty("swing.crossplatformlaf", "com.jgoodies.looks.plastic.PlasticXPLookAndFeel");
-				String osName = System.getProperty("os.name");
-				if (osName != null && osName.indexOf("Windows") != -1) {
-					UIManager.setLookAndFeel("com.jgoodies.looks.windows.WindowsLookAndFeel");
-				} else {
-					UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-				}
+
+//				String osName = System.getProperty("os.name");
+//				if (osName != null && osName.indexOf("Windows") != -1) {
+//					UIManager.setLookAndFeel("com.jgoodies.looks.windows.WindowsLookAndFeel");
+//				} else {
+//					UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+//				}
+
+				FlatLightLaf.setup();
 			}
 		} catch (Throwable e) {
 			e.printStackTrace();
@@ -465,7 +469,11 @@ public class GTDBoxMain {
 			jFrame.setJMenuBar(getJJMenuBar());
 			jFrame.setSize(1000, 600);
 			jFrame.setContentPane(getJContentPane());
-			jFrame.setTitle("GTD-Box");
+			String windowTitleSuffix = System.getProperty("window.title.suffix", "");
+			if(!windowTitleSuffix.isBlank()) {
+				windowTitleSuffix = " (" + windowTitleSuffix + ")";
+			}
+			jFrame.setTitle("GTD-Box" + windowTitleSuffix);
 			jFrame.setIconImage(ApplicationHelper.loadImage("splash96.png"));			
 			jFrame.addWindowListener(new WindowAdapter() {
 			
