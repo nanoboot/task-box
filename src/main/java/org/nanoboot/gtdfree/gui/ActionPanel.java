@@ -19,7 +19,7 @@
 
 package org.nanoboot.gtdfree.gui;
 
-import org.nanoboot.forks.de.wannawork.jcalendar.JCalendarComboBox;
+import org.nanoboot.de.wannawork.jcalendar.JCalendarComboBox;
 import org.nanoboot.gtdfree.ApplicationHelper;
 import org.nanoboot.gtdfree.GTDFreeEngine;
 import org.nanoboot.gtdfree.GlobalProperties;
