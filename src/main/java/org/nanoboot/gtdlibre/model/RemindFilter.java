@@ -1,0 +1,62 @@
+/*
+ *    Copyright (C) 2008 Igor Kriznar Copyright (C) 2024 Robert Vokac
+ *
+ *    This file is part of GTD-Libre.
+ *
+ *    GTD-Libre is free software: you can redistribute it and/or modify
+ *    it under the terms of the GNU General Public License as published by
+ *    the Free Software Foundation, either version 3 of the License, or
+ *    (at your option) any later version.
+ *
+ *    GTD-Libre is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU General Public License for more details.
+ *
+ *    You should have received a copy of the GNU General Public License
+ *    along with GTD-Libre.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package org.nanoboot.gtdlibre.model;
+
+/**
+ * @author ikesan
+ */
+public class RemindFilter implements ActionFilter {
+
+    private final boolean past;
+    private final long end;
+    private long start;
+
+    public RemindFilter(long start, long end) {
+
+        this.start = start;
+        this.end = end;
+        past = false;
+    }
+
+    public RemindFilter(long end, boolean past) {
+        this.end = end;
+        this.past = past;
+    }
+
+    /* (non-Javadoc)
+     * @see org.gtdfree.model.ActionFilter#isAccepted(org.gtdfree.model.Folder, org.gtdfree.model.Action)
+     */
+    @Override
+    public boolean isAcceptable(Folder f, Action a) {
+        if (a == null || a.getRemind() == null) {
+            return false;
+        }
+
+        long test = a.getRemind().getTime();
+
+        if (past) {
+            return end > test;
+        }
+
+        return start <= test && test < end;
+
+    }
+
+}
