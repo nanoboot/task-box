@@ -89,7 +89,6 @@ public class ModelTest extends TestCase {
 	 */
 	@Override
 	protected void setUp() throws Exception {
-		
 		gtdModel= new GTDModel();
 		
 		f1= gtdModel.createFolder("F1", FolderType.ACTION);
