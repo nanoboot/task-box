@@ -7,12 +7,12 @@
 
 
     <groupId>org.nanoboot.forks.org.gtdfree</groupId>
-    <artifactId>gtd-box</artifactId>
+    <artifactId>task-box</artifactId>
     <version>0.4.4-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>GTD-Box</name>
-    <description>GTD-Box is personal TODO/action manager inspired by GTD (Getting Things Done®) method by David Allen</description>
+    <name>Task-Box</name>
+    <description>Task-Box is personal TODO/action manager inspired by GTD (Getting Things Done®) method by David Allen</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -40,7 +40,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>org.nanoboot.forks.org.gtdbox.GTDBoxMain</mainClass>
+                            <mainClass>org.nanoboot.forks.org.taskbox.GTDBoxMain</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
@@ -96,7 +96,12 @@
             <artifactId>flatlaf</artifactId>
             <version>3.4.1</version>
         </dependency>
-
+        
+        <dependency>
+            <groupId>org.nanoboot.forks.de.wannawork.jcalendar</groupId>
+            <artifactId>jcalendar</artifactId>
+            <version>0.9.0-SNAPSHOT</version>
+        </dependency>
 
 
     </dependencies>
