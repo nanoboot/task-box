@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="GTD-Free" default="jar">
+
+	<property file="src/resources/gtd-free-config.properties"/>
+
+	<property name="dest" value="target/gtd-free"/>
+	<property name="dest.build" value="${dest}/classes"/>
+	<property name="jar" value="gtd-free-${build.version}.jar"/>
+
+
+	<fileset id="lib" dir="lib">
+		<include name="looks-2.2.0.jar"/>
+		<include name="commons-lang-2.4.jar"/>
+	</fileset>
+
+	<target name="jar">
+		<delete dir="${dest}"/>
+		<delete file="${jar}"/>
+		
+		<unzip dest="${dest.build}">
+			<fileset refid="lib"/>
+		</unzip>
+		
+		<copy todir="${dest.build}">
+			<fileset dir="src/java" includes="de/wannawork/jcalendar/*.properties"/>
+			<fileset dir="src/resources" includes="**/*"/>
+			<fileset file="src/example/gtd-free-example.xml"/>
+		</copy>
+		
+		<javac 
+        	destdir="${dest.build}"
+        	debug="on"
+			target="1.6"
+			source="1.6">
+			<src path="src/java"/>
+			<classpath path="${dest.build}"/>
+		</javac>
+		
+		<jar destfile="${jar}" basedir="${dest.build}" compress="true">
+			<manifest>
+				<attribute name="Built-By" value="Ike"/>
+				<attribute name="Build-Version" value="${build.version}"/>
+				<attribute name="Build-Type" value="${build.type}"/>
+				<attribute name="Main-Class" value="org.gtdfree.GTDFree"/>
+			</manifest>
+		</jar>
+	</target>
+	
+</project>
