@@ -1053,6 +1053,7 @@ public class GTDBoxMain {
 			String s= "Version "+getEngine().getConfiguration().getProperty("build.version")+" "+getEngine().getConfiguration().getProperty("build.type");
 			jp.add(new JLabel(s,SwingConstants.CENTER), new GridBagConstraints(0,1,1,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL, new Insets(11,11,11,11),0,0));
 			jp.add(new JLabel("Copyright © 2008 ikesan@users.sourceforge.net",SwingConstants.CENTER), new GridBagConstraints(0,2,1,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL, new Insets(11,11,11,11),0,0));
+                        jp.add(new JLabel("Copyright © 2024 mail@robertvokac.com",SwingConstants.CENTER), new GridBagConstraints(0,3,1,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL, new Insets(11,11,11,11),0,0));
 			jtp.addTab("About", jp);
 			
 			jp= new JPanel();
