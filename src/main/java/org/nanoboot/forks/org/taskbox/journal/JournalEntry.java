@@ -32,13 +32,13 @@ import org.nanoboot.forks.org.taskbox.model.Action;
  */
 public class JournalEntry {
 	
-	private int id;
+	private final int id;
 	private long day;
 	private String comment;
-	private List<Interval> intervals= new ArrayList<Interval>();
+	private final List<Interval> intervals= new ArrayList<>();
 	private List<Action> actions;
 	private boolean checked=false;
-	private EventListenerList listeners= new EventListenerList();
+	private final EventListenerList listeners= new EventListenerList();
 	
 	public JournalEntry(int id) {
 		this.id=id;
@@ -93,7 +93,7 @@ public class JournalEntry {
 	 * @return the intervals
 	 */
 	public Interval[] getIntervals() {
-		return intervals.toArray(new Interval[intervals.size()]);
+		return intervals.toArray(new Interval[0]);
 	}
 	
 	/**
@@ -169,9 +169,9 @@ public class JournalEntry {
 		}
 		
 		JournalEntryListener[] l= listeners.getListeners(JournalEntryListener.class);
-		
-		for (int i = 0; i < l.length; i++) {
-			l[i].journalEntryChanged(e);
+
+		for (JournalEntryListener journalEntryListener : l) {
+			journalEntryListener.journalEntryChanged(e);
 		}
 	}
 	
@@ -179,9 +179,9 @@ public class JournalEntry {
 		JournalEntryEvent e= new JournalEntryEvent(this,"intervals",it,null,ix);
 		
 		JournalEntryListener[] l= listeners.getListeners(JournalEntryListener.class);
-		
-		for (int i = 0; i < l.length; i++) {
-			l[i].journalEntryIntervalAdded(e);
+
+		for (JournalEntryListener journalEntryListener : l) {
+			journalEntryListener.journalEntryIntervalAdded(e);
 		}
 	}
 
@@ -189,9 +189,9 @@ public class JournalEntry {
 		JournalEntryEvent e= new JournalEntryEvent(this,"intervals",null,it,ix);
 		
 		JournalEntryListener[] l= listeners.getListeners(JournalEntryListener.class);
-		
-		for (int i = 0; i < l.length; i++) {
-			l[i].journalEntryIntervalRemoved(e);
+
+		for (JournalEntryListener journalEntryListener : l) {
+			journalEntryListener.journalEntryIntervalRemoved(e);
 		}
 	}
 

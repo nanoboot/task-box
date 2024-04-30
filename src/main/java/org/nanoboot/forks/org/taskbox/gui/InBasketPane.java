@@ -68,7 +68,7 @@ public class InBasketPane extends JPanel {
 	private AbstractAction clearAction;
 	private boolean setting=false;
 
-	private FolderListener noteListener= new FolderListener() {
+	private final FolderListener noteListener= new FolderListener() {
 	
 		public void elementRemoved(FolderEvent note) {
 			//
@@ -248,11 +248,8 @@ public class InBasketPane extends JPanel {
 		noteTable= new ActionTable();
 		noteTable.setShowQueueColumn(false);
 		noteTable.setCellAction(CellAction.DELETE);
-		noteTable.addPropertyChangeListener(ActionTable.SELECTED_ACTION_PROPERTY_NAME, new PropertyChangeListener() {
-			public void propertyChange(PropertyChangeEvent evt) {
-				setSelectedAction(noteTable.getSelectedAction());
-			}
-		});
+		noteTable.addPropertyChangeListener(ActionTable.SELECTED_ACTION_PROPERTY_NAME,
+				evt -> setSelectedAction(noteTable.getSelectedAction()));
 		
 		jp= new JPanel();
 		jp.setBorder(new TitledBorder(Messages.getString("InBasketPane.InBasketTitle"))); //$NON-NLS-1$

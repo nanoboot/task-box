@@ -63,23 +63,19 @@ public class FolderPanel extends JPanel {
 		setLayout(new GridBagLayout());
 		
 		folderTree= new FolderTree();
-		folderTree.addPropertyChangeListener("selectedFolder", new PropertyChangeListener() {
-		
-			public void propertyChange(PropertyChangeEvent evt) {
-				firePropertyChange(evt.getPropertyName(), evt.getOldValue(), evt.getNewValue());
-				
-				folderNameField.setEnabled(folderTree.isFolderRenamePossible() || folderTree.isFolderAddPossible());
-				
-				getRenameFolderAction().setEnabled(folderTree.isFolderRenamePossible());
-				getAddFolderAction().setEnabled(folderTree.isFolderAddPossible());
-				getCloseFolderAction().setEnabled(getSelectedFolder()!=null && !getSelectedFolder().isBuildIn() && getSelectedFolder().getType() != Folder.FolderType.INBUCKET && getSelectedFolder().getType() != Folder.FolderType.QUEUE && !getSelectedFolder().isClosed() && getSelectedFolder().getOpenCount() == 0);
-				getReopenFolderAction().setEnabled(getSelectedFolder()!=null && getSelectedFolder().isClosed());
-		
-				if (getSelectedFolder()!=null) {
-					folderNameField.setText(getSelectedFolder().getName());
-				}
+		folderTree.addPropertyChangeListener("selectedFolder", evt -> {
+			firePropertyChange(evt.getPropertyName(), evt.getOldValue(), evt.getNewValue());
+
+			folderNameField.setEnabled(folderTree.isFolderRenamePossible() || folderTree.isFolderAddPossible());
+
+			getRenameFolderAction().setEnabled(folderTree.isFolderRenamePossible());
+			getAddFolderAction().setEnabled(folderTree.isFolderAddPossible());
+			getCloseFolderAction().setEnabled(getSelectedFolder()!=null && !getSelectedFolder().isBuildIn() && getSelectedFolder().getType() != Folder.FolderType.INBUCKET && getSelectedFolder().getType() != Folder.FolderType.QUEUE && !getSelectedFolder().isClosed() && getSelectedFolder().getOpenCount() == 0);
+			getReopenFolderAction().setEnabled(getSelectedFolder()!=null && getSelectedFolder().isClosed());
+
+			if (getSelectedFolder()!=null) {
+				folderNameField.setText(getSelectedFolder().getName());
 			}
-		
 		});
 		add(new JScrollPane(folderTree), new GridBagConstraints(0,0,1,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(0,0,0,0),0,0));
 		
@@ -87,13 +83,11 @@ public class FolderPanel extends JPanel {
 		p.setLayout(new GridBagLayout());
 		
 		folderNameField= new JTextField();
-		folderNameField.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				if (getRenameFolderAction().isEnabled()) {
-					getRenameFolderAction().actionPerformed(e);
-				} else if (getAddFolderAction().isEnabled()) {
-					getAddFolderAction().actionPerformed(e);
-				}
+		folderNameField.addActionListener(e -> {
+			if (getRenameFolderAction().isEnabled()) {
+				getRenameFolderAction().actionPerformed(e);
+			} else if (getAddFolderAction().isEnabled()) {
+				getAddFolderAction().actionPerformed(e);
 			}
 		});
 		p.add(folderNameField,new GridBagConstraints(0,0,2,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,0,0,0),0,0));

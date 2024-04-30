@@ -58,8 +58,8 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 	class WeekdayToggleButton extends JToggleButton {
 		
 		private static final long serialVersionUID = 1L;
-		private String longName;
-		private String shortName;
+		private final String longName;
+		private final String shortName;
 		private long end;
 		private long start;
 
@@ -70,12 +70,7 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 			setMargin(new Insets(0,1,0,1));
 			setToolTipText(getText());
 			setSelected(false);
-			addItemListener(new ItemListener() {
-				@Override
-				public void itemStateChanged(ItemEvent e) {
-					fireSearch(false);
-				}
-			});
+			addItemListener(e -> fireSearch(false));
 		}
 		
 		public void fireSearch(boolean select) {
@@ -116,8 +111,8 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 	class MonthToggleButton extends JToggleButton {
 		
 		private static final long serialVersionUID = 1L;
-		private String longName;
-		private String shortName;
+		private final String longName;
+		private final String shortName;
 		private long start;
 		private long end;
 
@@ -128,12 +123,7 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 			setMargin(new Insets(0,1,0,1));
 			setToolTipText(getText());
 			setSelected(false);
-			addItemListener(new ItemListener() {
-				@Override
-				public void itemStateChanged(ItemEvent e) {
-					fireSearch(false);
-				}
-			});
+			addItemListener(e -> fireSearch(false));
 		}
 		
 		public void fireSearch(boolean select) {
@@ -184,12 +174,7 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 			setMargin(new Insets(0,1,0,1));
 			setToolTipText(getText());
 			setSelected(false);
-			addItemListener(new ItemListener() {
-				@Override
-				public void itemStateChanged(ItemEvent e) {
-					fireSearch(false);
-				}
-			});
+			addItemListener(e -> fireSearch(false));
 		}
 		
 		public void fireSearch(boolean select) {
@@ -227,13 +212,14 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 	private JRadioButton monthRadio;
 	private JRadioButton yearRadio;
 	private CardLayout cards;
-	private Map<Integer,WeekdayToggleButton> daysOfWeek= new HashMap<Integer,WeekdayToggleButton>(7); 
+	private final Map<Integer,WeekdayToggleButton> daysOfWeek= new HashMap<>(7);
 	private ButtonGroup viewGroup;
-	private DateFormatSymbols symbols= DateFormatSymbols.getInstance(Locale.ENGLISH);
-	private Map<Integer, DayOfMonthToggleButton> daysOfMonth= new HashMap<Integer,DayOfMonthToggleButton>(31);
-	private Map<Integer, MonthToggleButton> months= new HashMap<Integer, MonthToggleButton>(12);
-	private SimpleDateFormat dayFormat= new SimpleDateFormat("EEE, d MMM yyyy");
-	private SimpleDateFormat monthFormat= new SimpleDateFormat("MMMM yyyy");
+	private final DateFormatSymbols symbols= DateFormatSymbols.getInstance(Locale.ENGLISH);
+	private final Map<Integer, DayOfMonthToggleButton> daysOfMonth=
+			new HashMap<>(31);
+	private final Map<Integer, MonthToggleButton> months= new HashMap<>(12);
+	private final SimpleDateFormat dayFormat= new SimpleDateFormat("EEE, d MMM yyyy");
+	private final SimpleDateFormat monthFormat= new SimpleDateFormat("MMMM yyyy");
 	private JPanel weekPanel;
 	private JPanel monthPanel;
 	private JPanel yearPanel;
@@ -275,13 +261,10 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 		allRadio= new JRadioButton("All");
 		allRadio.setToolTipText("Shows all actions in list");
 		allRadio.setSelected(true);
-		allRadio.addItemListener(new ItemListener() {
-			@Override
-			public void itemStateChanged(ItemEvent e) {
-				if (e.getStateChange()==ItemEvent.SELECTED) {
-					cards.show(criterions, "All");
-					fireSearch(null);
-				}
+		allRadio.addItemListener(e -> {
+			if (e.getStateChange()==ItemEvent.SELECTED) {
+				cards.show(criterions, "All");
+				fireSearch(null);
 			}
 		});
 		viewGroup.add(allRadio);
@@ -289,13 +272,10 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 
 		pastRadio= new JRadioButton("Past");
 		pastRadio.setToolTipText("Shows actions past reminder date");
-		pastRadio.addItemListener(new ItemListener() {
-			@Override
-			public void itemStateChanged(ItemEvent e) {
-				if (e.getStateChange()==ItemEvent.SELECTED) {
-					cards.show(criterions, "Past");
-					fireSearchPast(Utils.today());
-				}
+		pastRadio.addItemListener(e -> {
+			if (e.getStateChange()==ItemEvent.SELECTED) {
+				cards.show(criterions, "Past");
+				fireSearchPast(Utils.today());
 			}
 		});
 		viewGroup.add(pastRadio);
@@ -303,13 +283,10 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 		
 		weekRadio= new JRadioButton("Week");
 		weekRadio.setToolTipText("Shows actions with reminder date set in next seven days");
-		weekRadio.addItemListener(new ItemListener() {
-			@Override
-			public void itemStateChanged(ItemEvent e) {
-				if (e.getStateChange()==ItemEvent.SELECTED) {
-					cards.show(criterions, "Week");
-					updateWeekPanel();
-				}
+		weekRadio.addItemListener(e -> {
+			if (e.getStateChange()==ItemEvent.SELECTED) {
+				cards.show(criterions, "Week");
+				updateWeekPanel();
 			}
 		});
 		viewGroup.add(weekRadio);
@@ -317,14 +294,11 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 		
 		monthRadio= new JRadioButton("Month");
 		monthRadio.setToolTipText("Shows actions with reminder date set within a month");
-		monthRadio.addItemListener(new ItemListener() {
-			@Override
-			public void itemStateChanged(ItemEvent e) {
-				if (e.getStateChange()==ItemEvent.SELECTED) {
-					cards.show(criterions, "Month");
-					updateMonthPanel();
-					doLayout();
-				}
+		monthRadio.addItemListener(e -> {
+			if (e.getStateChange()==ItemEvent.SELECTED) {
+				cards.show(criterions, "Month");
+				updateMonthPanel();
+				doLayout();
 			}
 		});
 		viewGroup.add(monthRadio);
@@ -332,13 +306,10 @@ public class TickleFilterPanel extends AbstractFilterPanel {
 
 		yearRadio= new JRadioButton("Year");
 		yearRadio.setToolTipText("Shows actions with reminder date set within a year");
-		yearRadio.addItemListener(new ItemListener() {
-			@Override
-			public void itemStateChanged(ItemEvent e) {
-				if (e.getStateChange()==ItemEvent.SELECTED) {
-					cards.show(criterions, "Year");
-					updateYearPanel();
-				}
+		yearRadio.addItemListener(e -> {
+			if (e.getStateChange()==ItemEvent.SELECTED) {
+				cards.show(criterions, "Year");
+				updateYearPanel();
 			}
 		});
 		viewGroup.add(yearRadio);

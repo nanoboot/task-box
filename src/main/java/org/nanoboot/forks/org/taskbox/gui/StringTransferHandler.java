@@ -44,20 +44,16 @@ public abstract class StringTransferHandler extends TransferHandler {
 		if (f!=null) {
 			try {
 				drop= support.getTransferable().getTransferData(f);
-			} catch (UnsupportedFlavorException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
+			} catch (UnsupportedFlavorException | IOException e) {
 				e.printStackTrace();
 			}
-		} else {
+        } else {
 			try {
 				drop= support.getTransferable().getTransferData(DataFlavor.stringFlavor);
-			} catch (UnsupportedFlavorException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
+			} catch (UnsupportedFlavorException | IOException e) {
 				e.printStackTrace();
 			}
-		}
+        }
 		if (drop!=null) {
 			s= String.valueOf(drop);
 		}
@@ -77,9 +73,9 @@ public abstract class StringTransferHandler extends TransferHandler {
 	}
 
 	private DataFlavor getStringFlavor(DataFlavor[] f) {
-		for (int i = 0; i < f.length; i++) {
-			if (f[i].equals(DataFlavor.stringFlavor)) {
-				return f[i];
+		for (DataFlavor dataFlavor : f) {
+			if (dataFlavor.equals(DataFlavor.stringFlavor)) {
+				return dataFlavor;
 			}
 		}
 		return null;

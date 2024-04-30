@@ -26,9 +26,9 @@ package org.nanoboot.forks.org.taskbox.model;
  */
 public class RemindFilter implements ActionFilter {
 
-	private boolean past;
+	private final boolean past;
 	private long start;
-	private long end;
+	private final long end;
 	
 	public RemindFilter(long start, long end) {
 		

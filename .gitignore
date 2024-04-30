@@ -31,3 +31,7 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+src/main/java/org/nanoboot/forks/de/*
+src/main/resources/de/*
+
+

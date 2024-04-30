@@ -53,13 +53,8 @@ public class TimeField extends JPanel {
 
 	public static void main(String[] args) {
 		TimeField tf= new TimeField();
-		tf.addPropertyChangeListener(PROPERTY_TIME_OF_DAY,new PropertyChangeListener() {
-		
-			@Override
-			public void propertyChange(PropertyChangeEvent evt) {
-				System.out.println(evt.getNewValue());
-			}
-		});
+		tf.addPropertyChangeListener(PROPERTY_TIME_OF_DAY,
+				evt -> System.out.println(evt.getNewValue()));
 		
 		JFrame f= new JFrame();
 		f.setContentPane(tf);
@@ -133,35 +128,27 @@ public class TimeField extends JPanel {
 			}
 		});
 		
-		hourButton.addActionListener(new ActionListener() {
-		
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				if (minutePicker!=null) {
-					minutePicker.setVisible(false);
-				}
-				if (getHourPicker().isVisible()) {
-					getHourPicker().setVisible(false);
-				} else {
-					getHourPicker().setLocation(hourButton.getLocationOnScreen().x,hourButton.getLocationOnScreen().y+hourButton.getHeight());
-					getHourPicker().setVisible(true);
-				}
+		hourButton.addActionListener(e -> {
+			if (minutePicker!=null) {
+				minutePicker.setVisible(false);
+			}
+			if (getHourPicker().isVisible()) {
+				getHourPicker().setVisible(false);
+			} else {
+				getHourPicker().setLocation(hourButton.getLocationOnScreen().x,hourButton.getLocationOnScreen().y+hourButton.getHeight());
+				getHourPicker().setVisible(true);
 			}
 		});
 		
-		minuteButton.addActionListener(new ActionListener() {
-			
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				if (hourPicker!=null) {
-					hourPicker.setVisible(false);
-				}
-				if (getMinutePicker().isVisible()) {
-					getMinutePicker().setVisible(false);
-				} else {
-					getMinutePicker().setLocation(minuteButton.getLocationOnScreen().x,minuteButton.getLocationOnScreen().y+minuteButton.getHeight());
-					getMinutePicker().setVisible(true);
-				}
+		minuteButton.addActionListener(e -> {
+			if (hourPicker!=null) {
+				hourPicker.setVisible(false);
+			}
+			if (getMinutePicker().isVisible()) {
+				getMinutePicker().setVisible(false);
+			} else {
+				getMinutePicker().setLocation(minuteButton.getLocationOnScreen().x,minuteButton.getLocationOnScreen().y+minuteButton.getHeight());
+				getMinutePicker().setVisible(true);
 			}
 		});
 		
@@ -199,14 +186,10 @@ public class TimeField extends JPanel {
 		if (hourPicker== null) {
 			hourPicker= new JWindow();
 			
-			ActionListener al= new ActionListener() {
-			
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					getHourPicker().setVisible(false);
-					int i= Integer.parseInt(e.getActionCommand());
-					setHour(i);
-				}
+			ActionListener al= e -> {
+				getHourPicker().setVisible(false);
+				int i= Integer.parseInt(e.getActionCommand());
+				setHour(i);
 			};
 			
 			JPanel p= new JPanel();
@@ -233,14 +216,10 @@ public class TimeField extends JPanel {
 		if (minutePicker== null) {
 			minutePicker= new JWindow();
 			
-			ActionListener al= new ActionListener() {
-			
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					getMinutePicker().setVisible(false);
-					int i= Integer.parseInt(e.getActionCommand());
-					setMinute(i);
-				}
+			ActionListener al= e -> {
+				getMinutePicker().setVisible(false);
+				int i= Integer.parseInt(e.getActionCommand());
+				setMinute(i);
 			};
 			
 			JPanel p= new JPanel();

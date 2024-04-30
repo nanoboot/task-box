@@ -34,15 +34,15 @@ public class Folder implements Iterable<Action> {
 
 	public enum FolderType {
 		INBUCKET, ACTION, REFERENCE, BUILDIN, PROJECT, QUEUE, BUILDIN_REMIND, BUILDIN_RESOLVED, BUILDIN_PRIORITY, SOMEDAY, BUILDIN_DELETED
-	};
+	}
 
-	private List<Action> actions = new ArrayList<Action>();
+	private final List<Action> actions = new ArrayList<>();
 
-	private GTDModel parent;
+	private final GTDModel parent;
 
 	private String name;
-	private int id;
-	private EventListenerList listeners = new EventListenerList();
+	private final int id;
+	private final EventListenerList listeners = new EventListenerList();
 
 	private FolderType type;
 	private Comparator<Action> comparator;
@@ -171,7 +171,7 @@ public class Folder implements Iterable<Action> {
 
 	private void sort() {
 		if (getComparator()!=null && !suspentedForMultipleChanges) {
-			Collections.sort(actions, getComparator());
+			actions.sort(getComparator());
 		}
 	}
 	
@@ -274,11 +274,11 @@ public class Folder implements Iterable<Action> {
 		if (a==null) {
 			return false;
 		}
-		for (int i = 0; i < actions.size(); i++) {
-			if (a==actions.get(i)) {
+		for (Action action : actions) {
+			if (a == action) {
 				return false;
 			}
-			if (actions.get(i).isOpen()) {
+			if (action.isOpen()) {
 				return true;
 			}
 		}
@@ -336,7 +336,7 @@ public class Folder implements Iterable<Action> {
 	}
 	
 	public synchronized Action[] actions() {
-		return actions.toArray(new Action[actions.size()]);
+		return actions.toArray(new Action[0]);
 	}
 
 	void setName(String newName) {
@@ -468,10 +468,10 @@ public class Folder implements Iterable<Action> {
 		Action[] aa= actions();
 		
 		actions.clear();
-		
-		for (int i = 0; i < aa.length; i++) {
-			aa[i].getFolder().remove(aa[i]);
-			fireElementRemoved(aa[i]);
+
+		for (Action action : aa) {
+			action.getFolder().remove(action);
+			fireElementRemoved(action);
 		}
 		
 	}

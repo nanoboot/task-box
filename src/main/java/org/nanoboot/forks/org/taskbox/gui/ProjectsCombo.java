@@ -52,7 +52,7 @@ import org.nanoboot.forks.org.taskbox.model.Project;
  */
 public class ProjectsCombo extends JComboBox {
 	
-	class ProjectEditor extends JTextField implements ComboBoxEditor {
+	static class ProjectEditor extends JTextField implements ComboBoxEditor {
 		
 		private static final long serialVersionUID = 1L;
 		Object item;
@@ -178,7 +178,7 @@ public class ProjectsCombo extends JComboBox {
 					int index, boolean isSelected, boolean cellHasFocus) {
 				if (value instanceof Project) {
 					value= ((Project)value).getName();
-				};
+				}
 				return super.getListCellRendererComponent(list, value, index,
 						isSelected, cellHasFocus);
 			}
@@ -213,19 +213,13 @@ public class ProjectsCombo extends JComboBox {
 		
 		Project[] p= gtdModel.projects();
 		
-		Arrays.sort(p, new Comparator<Project>() {
-		
-			public int compare(Project o1, Project o2) {
-				return o1.getName().compareTo(o2.getName());
-			}
-		
-		});
+		Arrays.sort(p, (o1, o2) -> o1.getName().compareTo(o2.getName()));
 
 		boolean contains=false;
-		for (int i = 0; i < p.length; i++) {
-			contains= contains || p[i].equals(selected); 
-			if (!p[i].isClosed()) {
-				comboModel.addElement(p[i]);
+		for (Project actions : p) {
+			contains = contains || actions.equals(selected);
+			if (!actions.isClosed()) {
+				comboModel.addElement(actions);
 			}
 		}
 		
@@ -323,9 +317,9 @@ public class ProjectsCombo extends JComboBox {
 		super.setOpaque(isOpaque);
 		Component[] c= getComponents();
 		if (c!=null) {
-			for (int i = 0; i < c.length; i++) {
-				if (c[i] instanceof JComponent) {
-					((JComponent)c[i]).setOpaque(isOpaque);
+			for (Component component : c) {
+				if (component instanceof JComponent) {
+					((JComponent) component).setOpaque(isOpaque);
 				}
 			}
 		}

@@ -57,10 +57,10 @@ public class ImportExampleDialog {
 
 	class ImportThread extends Thread {
 		
-		private boolean server;
+		private final boolean server;
 		private ProgressMonitor monitor;
 		private GTDModel model;
-		private Frame owner; 
+		private final Frame owner;
 
 		public ImportThread(boolean server, Frame owner) {
 			this.server=server;
@@ -179,24 +179,18 @@ public class ImportExampleDialog {
 				monitor.setProgress(2);
 
 				try {
-					SwingUtilities.invokeAndWait(new Runnable() {
-					
-						@Override
-						public void run() {
-							
-							if (monitor.isCanceled()) {
-								return;
-							}
-							engine.getGTDModel().importData(model);
-							
+					SwingUtilities.invokeAndWait(() -> {
+
+						if (monitor.isCanceled()) {
+							return;
 						}
+						engine.getGTDModel().importData(model);
+
 					});
-				} catch (InterruptedException e1) {
-					e1.printStackTrace();
-				} catch (InvocationTargetException e1) {
+				} catch (InterruptedException | InvocationTargetException e1) {
 					e1.printStackTrace();
 				}
-				
+
 			} else {
 				throw new IOException("Failed to obtain remote example file.");
 			}
@@ -250,26 +244,18 @@ public class ImportExampleDialog {
 			
 			JButton b= new JButton();
 			b.setText("Import");
-			b.addActionListener(new ActionListener() {
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					dialog.dispose();
-					
-					ImportThread im= new ImportThread(serverRadio.isSelected(),owner);
-					im.start();
-					
-				}
+			b.addActionListener(e -> {
+				dialog.dispose();
+
+				ImportThread im= new ImportThread(serverRadio.isSelected(),owner);
+				im.start();
+
 			});
 			p.add(b,new GridBagConstraints(0,row,1,1,1,0,GridBagConstraints.EAST,GridBagConstraints.NONE,new Insets(11,11,11,4),0,0));
 			
 			b= new JButton();
 			b.setText("Cancel");
-			b.addActionListener(new ActionListener() {
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					dialog.dispose();
-				}
-			});
+			b.addActionListener(e -> dialog.dispose());
 			p.add(b,new GridBagConstraints(1,row,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(11,4,11,11),0,0));
 
 			dialog.setContentPane(p);

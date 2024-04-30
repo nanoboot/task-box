@@ -24,7 +24,7 @@ package org.nanoboot.forks.org.taskbox.model;
  *
  */
 public interface GTDModelListener extends FolderListener {
-	public void folderAdded(Folder folder);
-	public void folderModified(FolderEvent folder);
-	public void folderRemoved(Folder folder);
+	void folderAdded(Folder folder);
+	void folderModified(FolderEvent folder);
+	void folderRemoved(Folder folder);
 }

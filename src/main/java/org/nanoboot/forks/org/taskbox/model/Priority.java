@@ -24,5 +24,5 @@ package org.nanoboot.forks.org.taskbox.model;
  *
  */
 public enum Priority {
-	None,Low,Medium,High;
+	None,Low,Medium,High
 }

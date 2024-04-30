@@ -68,7 +68,6 @@ import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -107,13 +106,7 @@ public class GTDBoxMain {
 			
 			JButton b= new JButton();
 			b.setIcon(icon);
-			b.addActionListener(new ActionListener() {
-			
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					tabbedPane.setSelectedIndex(tab);
-				}
-			});
+			b.addActionListener(e -> tabbedPane.setSelectedIndex(tab));
 			b.setMargin(new Insets(0,0,0,0));
 			add(b,new GridBagConstraints(0,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(0,0,0,7),0,0));
 
@@ -126,7 +119,7 @@ public class GTDBoxMain {
 	
 	class SummaryBean implements GTDModelListener {
 		
-		private PropertyChangeSupport supp= new PropertyChangeSupport(this);
+		private final PropertyChangeSupport supp= new PropertyChangeSupport(this);
 		private int inbucketCount;
 		private int queueCount; 
 		private int pastActions;
@@ -289,8 +282,8 @@ public class GTDBoxMain {
 	abstract class SummaryLabel extends JPanel implements ActionListener {
 		private static final long serialVersionUID = 1L;
 		
-		protected JLabel label;
-		protected JButton button;
+		protected final JLabel label;
+		protected final JButton button;
 
 		public SummaryLabel(final String prop) {
 			setLayout(new GridBagLayout());
@@ -301,13 +294,7 @@ public class GTDBoxMain {
 
 			SummaryBean sb= getSummaryBean();
 
-			sb.addPropertyChangeListener(prop, new PropertyChangeListener() {
-			
-				@Override
-				public void propertyChange(PropertyChangeEvent evt) {
-					updateText(evt);
-				}
-			});
+			sb.addPropertyChangeListener(prop, evt -> updateText(evt));
 			
 			button= new JButton();
 			button.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_next));
@@ -414,32 +401,27 @@ public class GTDBoxMain {
 		try {
 			final GTDBoxMain application = new GTDBoxMain();
 					
-			SwingUtilities.invokeLater(new Runnable() {
-				public void run() {
-					try {
-						application.getJFrame();
-						application.restore();
-						application.getJFrame().setVisible(true);
-						//application.restoreState();
-						//application.getJFrame().setSize(1024,768);
-					} catch (Throwable t) {
-						t.printStackTrace();
-						System.exit(0);
-					}
-			}
-			});
-			
-			Runtime.getRuntime().addShutdownHook(new Thread() {
-				@Override
-				public void run() {
-					try {
-						application.close(true);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-					ApplicationHelper.releaseLock();
+			SwingUtilities.invokeLater(() -> {
+				try {
+					application.getJFrame();
+					application.restore();
+					application.getJFrame().setVisible(true);
+					//application.restoreState();
+					//application.getJFrame().setSize(1024,768);
+				} catch (Throwable t) {
+					t.printStackTrace();
+					System.exit(0);
 				}
-			});
+		});
+			
+			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+				try {
+					application.close(true);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				ApplicationHelper.releaseLock();
+			}));
 		} catch (Throwable t) {
 			t.printStackTrace();
 			System.exit(0);
@@ -650,25 +632,16 @@ public class GTDBoxMain {
 			tabbedPane.addTab("Execute ("+getSummaryBean().getQueueCount()+")", ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_queue_execute), executePane);
 			executeTabIndex= tabbedPane.getTabCount()-1;
 			
-			getSummaryBean().addPropertyChangeListener("queueCount", new PropertyChangeListener() {
-				@Override
-				public void propertyChange(PropertyChangeEvent evt) {
-					tabbedPane.setTitleAt(executeTabIndex, "Execute ("+getSummaryBean().getQueueCount()+")");
-				}
-			});
+			getSummaryBean().addPropertyChangeListener("queueCount",
+					evt -> tabbedPane.setTitleAt(executeTabIndex, "Execute (" + getSummaryBean().getQueueCount() + ")"));
 			
-			if (Boolean.valueOf(getEngine().getConfiguration().getProperty("journal.enabled","false"))) {
+			if (Boolean.parseBoolean(getEngine().getConfiguration().getProperty("journal.enabled","false"))) {
 				journalPane = new JournalPane();
 				journalPane.setEngine(getEngine());
 				tabbedPane.addTab("Journal", ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_journaling),journalPane);
 			}
 			
-			tabbedPane.addChangeListener(new ChangeListener() {
-				@Override
-				public void stateChanged(ChangeEvent e) {
-					enableQuickCollectPanel();
-				}
-			});
+			tabbedPane.addChangeListener(e -> enableQuickCollectPanel());
 
 			jContentPane.add(tabbedPane);
 			
@@ -888,11 +861,9 @@ public class GTDBoxMain {
 			autoSaveMenuItem.setText("Auto Save");
 			autoSaveMenuItem.setSelected(getEngine().getGlobalProperties().getBoolean(GlobalProperties.AUTO_SAVE , true));
 			//autoSaveMenuItem.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_save));
-			autoSaveMenuItem.addActionListener(new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					getEngine().setAutoSave(autoSaveMenuItem.isSelected());
-					getEngine().getGlobalProperties().putProperty(GlobalProperties.AUTO_SAVE, autoSaveMenuItem.isSelected());
-				}
+			autoSaveMenuItem.addActionListener(e -> {
+				getEngine().setAutoSave(autoSaveMenuItem.isSelected());
+				getEngine().getGlobalProperties().putProperty(GlobalProperties.AUTO_SAVE, autoSaveMenuItem.isSelected());
 			});
 			fileMenu.add(autoSaveMenuItem);
 			
@@ -900,20 +871,12 @@ public class GTDBoxMain {
 			
 			JMenuItem jmi= new JMenuItem("Import...");
 			//jmi.setIcon(ApplicationHelper.getIconLarge_Import());
-			jmi.addActionListener(new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					importFile();
-				}
-			});
+			jmi.addActionListener(e -> importFile());
 			fileMenu.add(jmi);
 			
 			jmi= new JMenuItem("Export...");
 			//jmi.setIcon(ApplicationHelper.getIconLarge_Export());
-			jmi.addActionListener(new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					exportFile();
-				}
-			});
+			jmi.addActionListener(e -> exportFile());
 			fileMenu.add(jmi);
 
 			fileMenu.add(new JSeparator());
@@ -964,17 +927,13 @@ public class GTDBoxMain {
 			
 			JMenuItem jmi= new JMenuItem("Task-Box Home Page");
 			jmi.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_browser));
-			jmi.addActionListener(new ActionListener() {
-			
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					URI uri;
-					try {
-						uri = new URI(getEngine().getConfiguration().getProperty("application.home.url", "http://gtd-free.sourceforge.net"));
-						Desktop.getDesktop().browse(uri);
-					} catch (Exception e1) {
-						e1.printStackTrace();
-					}
+			jmi.addActionListener(e -> {
+				URI uri;
+				try {
+					uri = new URI(getEngine().getConfiguration().getProperty("application.home.url", "http://gtd-free.sourceforge.net"));
+					Desktop.getDesktop().browse(uri);
+				} catch (Exception e1) {
+					e1.printStackTrace();
 				}
 			});
 			helpMenu.add(jmi);
@@ -997,11 +956,7 @@ public class GTDBoxMain {
 			exitMenuItem = new JMenuItem();
 			exitMenuItem.setText("Exit");
 			exitMenuItem.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_exit));
-			exitMenuItem.addActionListener(new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					close(false);
-				}
-			});
+			exitMenuItem.addActionListener(e -> close(false));
 		}
 		return exitMenuItem;
 	}
@@ -1016,15 +971,13 @@ public class GTDBoxMain {
 			aboutMenuItem = new JMenuItem();
 			aboutMenuItem.setText("About");
 			aboutMenuItem.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_about));
-			aboutMenuItem.addActionListener(new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					JDialog aboutDialog = getAboutDialog();
-					//aboutDialog.pack();
-					Point loc = getJFrame().getLocation();
-					loc.translate(20, 20);
-					aboutDialog.setLocation(loc);
-					aboutDialog.setVisible(true);
-				}
+			aboutMenuItem.addActionListener(e -> {
+				JDialog aboutDialog = getAboutDialog();
+				//aboutDialog.pack();
+				Point loc = getJFrame().getLocation();
+				loc.translate(20, 20);
+				aboutDialog.setLocation(loc);
+				aboutDialog.setVisible(true);
 			});
 		}
 		return aboutMenuItem;
@@ -1063,21 +1016,19 @@ public class GTDBoxMain {
 				private String[] props;
 				private String[] getProperties() {
 					if (props==null) {
-						props= System.getProperties().keySet().toArray(new String[System.getProperties().size()]);
+						props= System.getProperties().keySet().toArray(
+								new String[0]);
 						Arrays.sort(props);
 					}
 					return props;
 				}
 				@Override
 				public String getColumnName(int column) {
-					switch (column) {
-						case 0:
-							return "Property";
-						case 1:
-							return "Value";
-						default:
-							return null;
-					}
+					return switch (column) {
+						case 0 -> "Property";
+						case 1 -> "Value";
+						default -> null;
+					};
 				}
 				public int getColumnCount() {
 					return 2;
@@ -1086,14 +1037,11 @@ public class GTDBoxMain {
 					return getProperties().length;
 				}
 				public Object getValueAt(int rowIndex, int columnIndex) {
-					switch (columnIndex) {
-						case 0:
-							return getProperties()[rowIndex];
-						case 1:
-							return System.getProperty(getProperties()[rowIndex]);
-						default:
-							return null;
-					}
+					return switch (columnIndex) {
+						case 0 -> getProperties()[rowIndex];
+						case 1 -> System.getProperty(getProperties()[rowIndex]);
+						default -> null;
+					};
 				}
 			};
 			JTable jt= new JTable(tm);
@@ -1116,18 +1064,14 @@ public class GTDBoxMain {
 			jp.add(new JScrollPane(consistencyCheckText),new GridBagConstraints(0,0,1,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(11,11,4,11),0,0));
 			
 			JButton b= new JButton("Check Data Consistency");
-			b.addActionListener(new ActionListener() {
-			
-				public void actionPerformed(ActionEvent e) {
-					try {
-						GTDModel.checkConsistency(getEngine().getGTDModel());
-					} catch (ConsistencyException e1) {
-						consistencyCheckText.setText(e1.toString());
-						consistencyCheckText.setCaretPosition(0);
-					}
-					consistencyCheckText.setText("Data consistency proved to be OK.");
+			b.addActionListener(e -> {
+				try {
+					GTDModel.checkConsistency(getEngine().getGTDModel());
+				} catch (ConsistencyException e1) {
+					consistencyCheckText.setText(e1.toString());
+					consistencyCheckText.setCaretPosition(0);
 				}
-			
+				consistencyCheckText.setText("Data consistency proved to be OK.");
 			});
 			jp.add(b,new GridBagConstraints(0,1,1,1,1,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(4,11,11,11),0,0));
 
@@ -1153,16 +1097,12 @@ public class GTDBoxMain {
 			saveMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S,
 					Event.CTRL_MASK, true));
 			saveMenuItem.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_large_save));
-			saveMenuItem.addActionListener(new ActionListener() {
-			
-				public void actionPerformed(ActionEvent e) {
-					try {
-						getEngine().save();
-					} catch (Exception ex) {
-						ex.printStackTrace();
-					}
+			saveMenuItem.addActionListener(e -> {
+				try {
+					getEngine().save();
+				} catch (Exception ex) {
+					ex.printStackTrace();
 				}
-			
 			});
 		}
 		return saveMenuItem;
@@ -1172,13 +1112,7 @@ public class GTDBoxMain {
 		if (engine == null) {
 			try {
 				engine = new GTDBoxEngine();
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
-			} catch (XMLStreamException e) {
-				e.printStackTrace();
-			} catch (FactoryConfigurationError e) {
-				e.printStackTrace();
-			} catch (MalformedURLException e) {
+			} catch (FileNotFoundException | MalformedURLException | FactoryConfigurationError | XMLStreamException e) {
 				e.printStackTrace();
 			}
 		}
@@ -1201,11 +1135,8 @@ public class GTDBoxMain {
 		if (showAllActions == null) {
 			showAllActions = new JCheckBoxMenuItem(getActionMap().get(GlobalProperties.SHOW_ALL_ACTIONS));
 			showAllActions.setSelected(getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
-			getEngine().getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_ALL_ACTIONS, new PropertyChangeListener() {
-				public void propertyChange(PropertyChangeEvent evt) {
-					showAllActions.setSelected(getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
-				}
-			});
+			getEngine().getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_ALL_ACTIONS,
+					evt -> showAllActions.setSelected(getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS)));
 		}
 		return showAllActions;
 	}
@@ -1214,11 +1145,8 @@ public class GTDBoxMain {
 		if (showClosedFolders == null) {
 			showClosedFolders = new JCheckBoxMenuItem(getActionMap().get(GlobalProperties.SHOW_CLOSED_FOLDERS));
 			showClosedFolders.setSelected(getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_CLOSED_FOLDERS));
-			getEngine().getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_CLOSED_FOLDERS, new PropertyChangeListener() {
-				public void propertyChange(PropertyChangeEvent evt) {
-					showClosedFolders.setSelected(getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_CLOSED_FOLDERS));
-				}
-			});
+			getEngine().getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_CLOSED_FOLDERS,
+					evt -> showClosedFolders.setSelected(getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_CLOSED_FOLDERS)));
 		}
 		return showClosedFolders;
 	}
@@ -1227,21 +1155,20 @@ public class GTDBoxMain {
 		if (showOverviewTab == null) {
 			showOverviewTab = new JCheckBoxMenuItem(getActionMap().get(GlobalProperties.SHOW_OVERVIEW_TAB));
 			showOverviewTab.setSelected(getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_OVERVIEW_TAB,true));
-			getEngine().getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_OVERVIEW_TAB, new PropertyChangeListener() {
-				public void propertyChange(PropertyChangeEvent evt) {
-					showOverviewTab.setSelected(getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_OVERVIEW_TAB));
-					
-					if (getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_OVERVIEW_TAB)) {
-						if (tabbedPane.getComponentAt(0)!=getOverviewPane()) {
-							tabbedPane.insertTab("Overview", ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_overview), getOverviewPane(), "", 0);
+			getEngine().getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_OVERVIEW_TAB,
+					evt -> {
+						showOverviewTab.setSelected(getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_OVERVIEW_TAB));
+
+						if (getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_OVERVIEW_TAB)) {
+							if (tabbedPane.getComponentAt(0)!=getOverviewPane()) {
+								tabbedPane.insertTab("Overview", ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_overview), getOverviewPane(), "", 0);
+							}
+						} else {
+							if (tabbedPane.getComponentAt(0)==getOverviewPane()) {
+								tabbedPane.remove(0);
+							}
 						}
-					} else {
-						if (tabbedPane.getComponentAt(0)==getOverviewPane()) {
-							tabbedPane.remove(0);
-						}
-					}
-				}
-			});
+					});
 		}
 		return showOverviewTab;
 	}
@@ -1250,12 +1177,11 @@ public class GTDBoxMain {
 		if (showQuickCollectBar == null) {
 			showQuickCollectBar = new JCheckBoxMenuItem(getActionMap().get(GlobalProperties.SHOW_QUICK_COLLECT));
 			showQuickCollectBar.setSelected(getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_QUICK_COLLECT));
-			getEngine().getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_QUICK_COLLECT, new PropertyChangeListener() {
-				public void propertyChange(PropertyChangeEvent evt) {
-					showQuickCollectBar.setSelected(getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_QUICK_COLLECT));
-					enableQuickCollectPanel();
-				}
-			});
+			getEngine().getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_QUICK_COLLECT,
+					evt -> {
+						showQuickCollectBar.setSelected(getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_QUICK_COLLECT));
+						enableQuickCollectPanel();
+					});
 		}
 		return showQuickCollectBar;
 	}

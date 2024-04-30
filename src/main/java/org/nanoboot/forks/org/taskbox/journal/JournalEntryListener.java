@@ -27,10 +27,10 @@ import java.util.EventListener;
  */
 public interface JournalEntryListener extends EventListener {
 	
-	public void journalEntryChanged(JournalEntryEvent e);
+	void journalEntryChanged(JournalEntryEvent e);
 	
-	public void journalEntryIntervalAdded(JournalEntryEvent e);
+	void journalEntryIntervalAdded(JournalEntryEvent e);
 	
-	public void journalEntryIntervalRemoved(JournalEntryEvent e);
+	void journalEntryIntervalRemoved(JournalEntryEvent e);
 	
 }

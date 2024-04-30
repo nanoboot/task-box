@@ -24,7 +24,7 @@ package org.nanoboot.forks.org.taskbox.model;
  *
  */
 public interface Visitor {
-	public void meet(Folder f);
-	public void meet(Action a);
-	public void depart(Folder f);
+	void meet(Folder f);
+	void meet(Action a);
+	void depart(Folder f);
 }

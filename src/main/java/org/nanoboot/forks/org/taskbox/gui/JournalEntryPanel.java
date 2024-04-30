@@ -74,31 +74,16 @@ public class JournalEntryPanel extends JPanel {
 			setLayout(new GridBagLayout());
 			
 			from = new TimeField();
-			from.addPropertyChangeListener(TimeField.PROPERTY_TIME_OF_DAY, new PropertyChangeListener() {
-			
-				@Override
-				public void propertyChange(PropertyChangeEvent evt) {
-					journalEntry.setInterval(index, new Interval(from.getTimeOfDay(),interval.getEnd()));
-				}
-			});
+			from.addPropertyChangeListener(TimeField.PROPERTY_TIME_OF_DAY,
+					evt -> journalEntry.setInterval(index, new Interval(from.getTimeOfDay(),interval.getEnd())));
 			
 			to= new TimeField();
-			to.addPropertyChangeListener(TimeField.PROPERTY_TIME_OF_DAY, new PropertyChangeListener() {
-				
-				@Override
-				public void propertyChange(PropertyChangeEvent evt) {
-					journalEntry.setInterval(index, new Interval(interval.getStart(),to.getTimeOfDay()));
-				}
-			});
+			to.addPropertyChangeListener(TimeField.PROPERTY_TIME_OF_DAY,
+					evt -> journalEntry.setInterval(index, new Interval(interval.getStart(),to.getTimeOfDay())));
 
 			JButton b= new JButton();
 			b.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_add));
-			b.addActionListener(new ActionListener() {
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					journalEntry.addInterval(new Interval(interval.getEnd(),(int)(interval.getEnd() + JournalTools.MILLIS_IN_HOUR)));
-				}
-			});
+			b.addActionListener(e -> journalEntry.addInterval(new Interval(interval.getEnd(),(int)(interval.getEnd() + JournalTools.MILLIS_IN_HOUR))));
 			
 			add(from, new GridBagConstraints(0,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
 			add(new JLabel("\u00E2"), new GridBagConstraints(0,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));

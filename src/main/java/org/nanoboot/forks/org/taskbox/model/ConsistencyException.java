@@ -86,9 +86,9 @@ public class ConsistencyException extends Exception {
 				append(sb, actions[0]);
 			} else {
 				sb.append("Actions:\n");
-				for (int i = 0; i < actions.length; i++) {
-					append(sb, actions[i]);
-				}
+                for (Action action : actions) {
+                    append(sb, action);
+                }
 			}
 			sb.append('\n');
 		}
@@ -98,9 +98,9 @@ public class ConsistencyException extends Exception {
 				append(sb, folders[0]);
 			} else {
 				sb.append("Lists:\n");
-				for (int i = 0; i < folders.length; i++) {
-					append(sb, folders[i]);
-				}
+                for (Folder folder : folders) {
+                    append(sb, folder);
+                }
 			}
 			sb.append('\n');
 		}
@@ -110,9 +110,9 @@ public class ConsistencyException extends Exception {
 				append(sb, projects[0]);
 			} else {
 				sb.append("Projects:\n");
-				for (int i = 0; i < projects.length; i++) {
-					append(sb, projects[i]);
-				}
+                for (Project project : projects) {
+                    append(sb, project);
+                }
 			}
 			sb.append('\n');
 		}

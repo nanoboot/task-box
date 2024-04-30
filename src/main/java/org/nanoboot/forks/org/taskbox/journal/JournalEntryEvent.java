@@ -28,11 +28,11 @@ import java.util.EventObject;
 public class JournalEntryEvent extends EventObject {
 
 	private static final long serialVersionUID = 1L;
-	private JournalEntry yournalEntry;
-	private int index;
-	private String property;
-	private Object oldValue;
-	private Object newValue; 
+	private final JournalEntry yournalEntry;
+	private final int index;
+	private final String property;
+	private final Object oldValue;
+	private final Object newValue;
 	
 	/**
 	 * @param source

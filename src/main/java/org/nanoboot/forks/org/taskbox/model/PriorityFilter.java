@@ -26,8 +26,8 @@ package org.nanoboot.forks.org.taskbox.model;
  */
 public final class PriorityFilter implements ActionFilter {
 
-	private Priority priority;
-	private boolean exactMatch;
+	private final Priority priority;
+	private final boolean exactMatch;
 
 	public PriorityFilter(Priority priority, boolean exactMatch) {
 		this.exactMatch=exactMatch;
@@ -48,9 +48,8 @@ public final class PriorityFilter implements ActionFilter {
 	
 	@Override
 	public boolean equals(Object obj) {
-		if (obj instanceof PriorityFilter) {
-			PriorityFilter f= (PriorityFilter)obj;
-			
+		if (obj instanceof PriorityFilter f) {
+
 			return f.exactMatch==exactMatch && f.priority==priority;
 			
 		}

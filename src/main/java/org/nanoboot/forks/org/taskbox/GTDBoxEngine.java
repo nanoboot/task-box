@@ -235,7 +235,7 @@ public class GTDBoxEngine {
 	}
 	
 	private GTDModel.DataHeader[] findBackupFiles() {
-		List<GTDModel.DataHeader> l= new ArrayList<GTDModel.DataHeader>(10);
+		List<GTDModel.DataHeader> l= new ArrayList<>(10);
 		
 		for (int i=0; i<10; i++) {
 			
@@ -251,22 +251,19 @@ public class GTDBoxEngine {
 			
 		}
 		
-		Collections.sort(l, new Comparator<GTDModel.DataHeader>() {
-		
-			@Override
-			public int compare(GTDModel.DataHeader o1, GTDModel.DataHeader o2) {
-				if (o1.getModified()==null || o2.getModified()==null) {
-					return 0;
-				}
-				return (int)(o2.getModified().getTime()-o1.getModified().getTime());
+		l.sort((o1, o2) -> {
+			if (o1.getModified() == null || o2.getModified() == null) {
+				return 0;
 			}
+			return (int) (o2.getModified().getTime() - o1.getModified()
+					.getTime());
 		});
 		
 		for (GTDModel.DataHeader dataHeader : l) {
 			System.out.println(dataHeader);
 		}
 		
-		return l.toArray(new GTDModel.DataHeader[l.size()]);
+		return l.toArray(new GTDModel.DataHeader[0]);
 		
 		
 	}
@@ -377,24 +374,15 @@ public class GTDBoxEngine {
 			
 			File f= new File(getDataFolder(),ApplicationHelper.OPTIONS_FILE_NAME);
 			if (f.exists()) {
-				BufferedReader r=null;
-				
-				try {
-					r= new BufferedReader(new FileReader(f));
-					
+
+				try (BufferedReader r = new BufferedReader(new FileReader(f))) {
+
 					globalProperties.load(r);
-					
+
 				} catch (IOException e) {
 					e.printStackTrace();
-				} finally {
-					try {
-						if (r!=null) {
-							r.close();
-						}
-					} catch (IOException e) {
-						// ignore
-					}
 				}
+				// ignore
 			}
 		}
 		return globalProperties;
@@ -442,22 +430,13 @@ public class GTDBoxEngine {
 		}
 		
 		File f= new File(getDataFolder(),ApplicationHelper.OPTIONS_FILE_NAME);
-		BufferedWriter w=null;
-		try {
-			w= new BufferedWriter(new FileWriter(f));
-			globalProperties.store(w);	
+		try (BufferedWriter w = new BufferedWriter(new FileWriter(f))) {
+			globalProperties.store(w);
 		} catch (IOException e) {
 			e.printStackTrace();
-		} finally {
-			try {
-				if (w!=null) {
-					w.close();
-				}
-			} catch (IOException e) {
-				// ignore
-			}
 		}
-		
+		// ignore
+
 		return true;
 		
 	}

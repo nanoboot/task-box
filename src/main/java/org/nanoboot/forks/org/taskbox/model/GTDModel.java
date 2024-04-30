@@ -113,7 +113,7 @@ public class GTDModel implements Iterable<Folder> {
 			}
 
 		}
-		private File file;
+		private final File file;
 		private String version;
 		private Date modified;
 		/**
@@ -137,7 +137,7 @@ public class GTDModel implements Iterable<Folder> {
 		}
 	}
 	
-	public static final void main(String[] args) {
+	public static void main(String[] args) {
 		GTDModel m= new GTDModel();
 		
 		//Folder f= m.createFolder("Input Bin", FolderType.NOTE);
@@ -158,13 +158,13 @@ public class GTDModel implements Iterable<Folder> {
 		
 	}
 	
-	public static final void checkConsistency(GTDModel m) throws ConsistencyException {
+	public static void checkConsistency(GTDModel m) throws ConsistencyException {
 		
-		Map<Integer, Folder> ids2Folders= new HashMap<Integer, Folder>();
-		Map<Integer, Action> ids2Actions= new HashMap<Integer, Action>();
-		Map<Action, Folder> actions2Folders= new HashMap<Action, Folder>();
-		Map<Action, Integer> actions2Projects= new HashMap<Action, Integer>();
-		Set<Action> resolved= new HashSet<Action>();
+		Map<Integer, Folder> ids2Folders= new HashMap<>();
+		Map<Integer, Action> ids2Actions= new HashMap<>();
+		Map<Action, Folder> actions2Folders= new HashMap<>();
+		Map<Action, Integer> actions2Projects= new HashMap<>();
+		Set<Action> resolved= new HashSet<>();
 
 		for (Folder f : m) {
 			if (ids2Folders.containsKey(f.getId())) {
@@ -221,17 +221,19 @@ public class GTDModel implements Iterable<Folder> {
 		}
 		
 		if (actions2Projects.size()>0) {
-			throw new ConsistencyException("Actions has project set, but not located in project folders.", actions2Projects.keySet().toArray(new Action[actions2Projects.size()]), null, null);
+			throw new ConsistencyException("Actions has project set, but not located in project folders.", actions2Projects.keySet().toArray(
+					new Action[0]), null, null);
 		}
 		if (actions2Projects.size()>0) {
-			throw new ConsistencyException("Actions are resolved, but not located in resolved default folder.", resolved.toArray(new Action[resolved.size()]), null,null);
+			throw new ConsistencyException("Actions are resolved, but not located in resolved default folder.", resolved.toArray(
+					new Action[0]), null,null);
 		}
 		
 	}
 
 	
 	class ModelListenerSupport implements GTDModelListener {
-		EventListenerList listeners= new EventListenerList();
+		final EventListenerList listeners= new EventListenerList();
 		
 		public void addlistener(GTDModelListener l) {
 			listeners.add(GTDModelListener.class,l);
@@ -344,9 +346,9 @@ public class GTDModel implements Iterable<Folder> {
 		public void elementAdded(FolderEvent a) {
 			updateMetaAdd(a);
 			GTDModelListener[] l= listeners.getListeners(GTDModelListener.class);
-			for (int i = 0; i < l.length; i++) {
+			for (GTDModelListener gtdModelListener : l) {
 				try {
-					l[i].elementAdded(a);
+					gtdModelListener.elementAdded(a);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -374,9 +376,9 @@ public class GTDModel implements Iterable<Folder> {
 				}
 			}
 			GTDModelListener[] l= listeners.getListeners(GTDModelListener.class);
-			for (int i = 0; i < l.length; i++) {
+			for (GTDModelListener gtdModelListener : l) {
 				try {
-					l[i].elementModified(a);
+					gtdModelListener.elementModified(a);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -385,9 +387,9 @@ public class GTDModel implements Iterable<Folder> {
 		public void elementRemoved(FolderEvent a) {
 			updateMetaRemove(a);
 			GTDModelListener[] l= listeners.getListeners(GTDModelListener.class);
-			for (int i = 0; i < l.length; i++) {
+			for (GTDModelListener gtdModelListener : l) {
 				try {
-					l[i].elementRemoved(a);
+					gtdModelListener.elementRemoved(a);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -395,9 +397,9 @@ public class GTDModel implements Iterable<Folder> {
 		}
 		public void folderAdded(Folder folder) {
 			GTDModelListener[] l= listeners.getListeners(GTDModelListener.class);
-			for (int i = 0; i < l.length; i++) {
+			for (GTDModelListener gtdModelListener : l) {
 				try {
-					l[i].folderAdded(folder);
+					gtdModelListener.folderAdded(folder);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -408,9 +410,9 @@ public class GTDModel implements Iterable<Folder> {
 		}
 		public void folderModified(FolderEvent folder) {
 			GTDModelListener[] l= listeners.getListeners(GTDModelListener.class);
-			for (int i = 0; i < l.length; i++) {
+			for (GTDModelListener gtdModelListener : l) {
 				try {
-					l[i].folderModified(folder);
+					gtdModelListener.folderModified(folder);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -418,9 +420,9 @@ public class GTDModel implements Iterable<Folder> {
 		}
 		public void folderRemoved(Folder folder) {
 			GTDModelListener[] l= listeners.getListeners(GTDModelListener.class);
-			for (int i = 0; i < l.length; i++) {
+			for (GTDModelListener gtdModelListener : l) {
 				try {
-					l[i].folderRemoved(folder);
+					gtdModelListener.folderRemoved(folder);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -428,9 +430,9 @@ public class GTDModel implements Iterable<Folder> {
 		}
 		public void orderChanged(Folder f) {
 			GTDModelListener[] l= listeners.getListeners(GTDModelListener.class);
-			for (int i = 0; i < l.length; i++) {
+			for (GTDModelListener gtdModelListener : l) {
 				try {
-					l[i].orderChanged(f);
+					gtdModelListener.orderChanged(f);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -449,11 +451,11 @@ public class GTDModel implements Iterable<Folder> {
 	private final static String SKIP="  ";
 	private final static String SKIPSKIP="    ";
 
-	private Map<Integer,Folder> folders= new HashMap<Integer,Folder>();
-	private Map<Integer,Project> projects= new HashMap<Integer,Project>();
+	private final Map<Integer,Folder> folders= new HashMap<>();
+	private final Map<Integer,Project> projects= new HashMap<>();
 	private int lastActionID=0; 
 	private int lastFolderID=0; 
-	private ModelListenerSupport support= new ModelListenerSupport();
+	private final ModelListenerSupport support= new ModelListenerSupport();
 	private Folder resolved;
 	private Folder deleted;
 	private Folder reminder;
@@ -472,30 +474,20 @@ public class GTDModel implements Iterable<Folder> {
 	private void createMetaFolders() {
 		resolved= createFolder(-1, "Resolved", FolderType.BUILDIN_RESOLVED);
 		resolved.setDescription("This is build-in list automatically filled with all resolved actions.");
-		resolved.setComparator(new Comparator<Action>() {
-		
-			public int compare(Action o1, Action o2) {
-				return o1.getId()-o2.getId();
-			}
-		
-		});
+		resolved.setComparator((o1, o2) -> o1.getId() - o2.getId());
 		reminder= createFolder(-2, "Tickler", FolderType.BUILDIN_REMIND);
 		reminder.setDescription("This is build-in list automatically filled with all actions, which has reminder date set.");
-		reminder.setComparator(new Comparator<Action>() {
-		
-			public int compare(Action o1, Action o2) {
-				if (o1.getRemind()==null && o2.getRemind()==null) {
-					return 0;
-				}
-				if (o1.getRemind()==null) {
-					return -1;
-				}
-				if (o2.getRemind()==null) {
-					return 1;
-				}
-				return o1.getRemind().compareTo(o2.getRemind());
+		reminder.setComparator((o1, o2) -> {
+			if (o1.getRemind()==null && o2.getRemind()==null) {
+				return 0;
 			}
-		
+			if (o1.getRemind()==null) {
+				return -1;
+			}
+			if (o2.getRemind()==null) {
+				return 1;
+			}
+			return o1.getRemind().compareTo(o2.getRemind());
 		});
 		inBucket= createFolder(-3, "In-Bucket", FolderType.INBUCKET);
 		inBucket.setDescription("This is build-in list where all thougths, ideas and actions are collected.\nProcess and empty this list regualry.");
@@ -505,20 +497,11 @@ public class GTDModel implements Iterable<Folder> {
 		
 		priority= createFolder(-5, "Priority", FolderType.BUILDIN_PRIORITY);
 		priority.setDescription("This is build-in list automatically filled with all actions, which has priority value set to level higher or equal to 'Low'.");
-		priority.setComparator(new Comparator<Action>() {
-			public int compare(Action o1, Action o2) {
-				return -o1.getPriority().compareTo(o2.getPriority());
-			}
-		});
+		priority.setComparator(
+				(o1, o2) -> -o1.getPriority().compareTo(o2.getPriority()));
 		deleted= createFolder(-6, "Deleted", FolderType.BUILDIN_DELETED);
 		deleted.setDescription("This is build-in list automatically filled with all deleted actions.");
-		deleted.setComparator(new Comparator<Action>() {
-		
-			public int compare(Action o1, Action o2) {
-				return o1.getId()-o2.getId();
-			}
-		
-		});
+		deleted.setComparator((o1, o2) -> o1.getId() - o2.getId());
 	}
 	
 	public void addGTDModelListener(GTDModelListener l) {
@@ -599,9 +582,8 @@ public class GTDModel implements Iterable<Folder> {
 		Folder[] fn= folders();
 		w.writeStartElement("lists");
 		w.writeCharacters(EOL);
-		
-		for (int i = 0; i < fn.length; i++) {
-			Folder ff= fn[i];
+
+		for (Folder ff : fn) {
 			if (ff.isMeta()) {
 				continue;
 			}
@@ -611,35 +593,49 @@ public class GTDModel implements Iterable<Folder> {
 			w.writeAttribute("name", ff.getName());
 			w.writeAttribute("type", ff.getType().toString());
 			w.writeAttribute("closed", Boolean.toString(ff.isClosed()));
-			if (!ff.isInBucket() && ff.getDescription()!=null) {
-				w.writeAttribute("description", ApplicationHelper.escapeControls(ff.getDescription()));
+			if (!ff.isInBucket() && ff.getDescription() != null) {
+				w.writeAttribute("description",
+						ApplicationHelper.escapeControls(ff.getDescription()));
 			}
 			w.writeCharacters(EOL);
-			
-			Action[] aa= ff.actions();
-			for (int j = 0; j < aa.length; j++) {
-				Action a = aa[j];
+
+			Action[] aa = ff.actions();
+			for (Action a : aa) {
 				w.writeCharacters(SKIPSKIP);
 				w.writeStartElement("action");
 				w.writeAttribute("id", Integer.toString(a.getId()));
-				w.writeAttribute("created", Long.toString(a.getCreated().getTime()));
+				w.writeAttribute("created",
+						Long.toString(a.getCreated().getTime()));
 				w.writeAttribute("resolution", a.getResolution().toString());
-				if (a.getResolved()!=null) {
-					w.writeAttribute("resolved", Long.toString(a.getResolved().getTime()));
+				if (a.getResolved() != null) {
+					w.writeAttribute("resolved",
+							Long.toString(a.getResolved().getTime()));
 				}
-				
-				if (a.getDescription()!=null) {
-					w.writeAttribute("description", ApplicationHelper.escapeControls(a.getDescription()));
+
+				if (a.getDescription() != null) {
+					w.writeAttribute("description", ApplicationHelper
+							.escapeControls(a.getDescription()));
 				}
-				
-				if (a.getStart()!=null) w.writeAttribute("start", Long.toString(a.getStart().getTime()));
-				if (a.getRemind()!=null) w.writeAttribute("remind", Long.toString(a.getRemind().getTime()));
-				if (a.getDue()!=null) w.writeAttribute("due", Long.toString(a.getDue().getTime()));
-				if (a.getType()!=null) w.writeAttribute("type", a.getType().toString());
-				if (a.getUrl()!=null) w.writeAttribute("url", a.getUrl().toString());
-				if (a.isQueued()) w.writeAttribute("queued", Boolean.toString(a.isQueued()));
-				if (a.getProject()!=null) w.writeAttribute("project", a.getProject().toString());
-				if (a.getPriority()!=null) w.writeAttribute("priority", a.getPriority().toString());
+
+				if (a.getStart() != null)
+					w.writeAttribute("start",
+							Long.toString(a.getStart().getTime()));
+				if (a.getRemind() != null)
+					w.writeAttribute("remind",
+							Long.toString(a.getRemind().getTime()));
+				if (a.getDue() != null)
+					w.writeAttribute("due",
+							Long.toString(a.getDue().getTime()));
+				if (a.getType() != null)
+					w.writeAttribute("type", a.getType().toString());
+				if (a.getUrl() != null)
+					w.writeAttribute("url", a.getUrl().toString());
+				if (a.isQueued())
+					w.writeAttribute("queued", Boolean.toString(a.isQueued()));
+				if (a.getProject() != null)
+					w.writeAttribute("project", a.getProject().toString());
+				if (a.getPriority() != null)
+					w.writeAttribute("priority", a.getPriority().toString());
 				w.writeEndElement();
 				w.writeCharacters(EOL);
 			}
@@ -654,22 +650,22 @@ public class GTDModel implements Iterable<Folder> {
 		Project[] pn= projects();
 		w.writeStartElement("projects");
 		w.writeCharacters(EOL);
-		
-		for (int i = 0; i < pn.length; i++) {
-			Project ff= pn[i];
+
+		for (Project ff : pn) {
 			w.writeCharacters(SKIP);
 			w.writeStartElement("project");
 			w.writeAttribute("id", String.valueOf(ff.getId()));
 			w.writeAttribute("name", ff.getName());
 			w.writeAttribute("closed", String.valueOf(ff.isClosed()));
 
-			if (ff.getDescription()!=null) {
-				w.writeAttribute("description", ApplicationHelper.escapeControls(ff.getDescription()));
+			if (ff.getDescription() != null) {
+				w.writeAttribute("description",
+						ApplicationHelper.escapeControls(ff.getDescription()));
 			}
-			
-			StringBuilder sb= new StringBuilder();
-			Action[] aa= ff.actions();
-			if (aa.length>0) {
+
+			StringBuilder sb = new StringBuilder();
+			Action[] aa = ff.actions();
+			if (aa.length > 0) {
 				sb.append(aa[0].getId());
 			}
 			for (int j = 1; j < aa.length; j++) {
@@ -884,8 +880,8 @@ public class GTDModel implements Iterable<Folder> {
 	}
 	private void _load_2_0(XMLStreamReader r) throws XMLStreamException {
 		
-		HashMap<Integer, Action> withProject= new HashMap<Integer, Action>();
-		HashMap<Integer, Action> queued= new HashMap<Integer, Action>();
+		HashMap<Integer, Action> withProject= new HashMap<>();
+		HashMap<Integer, Action> queued= new HashMap<>();
 
 		if (checkTagStart(r,"folders")) {
 
@@ -1005,11 +1001,11 @@ public class GTDModel implements Iterable<Folder> {
 				
 				if (s!=null && s.trim().length()>0) {
 					String[] ss= s.trim().split(",");
-					for (int i = 0; i < ss.length; i++) {
-						if (ss[i].trim().length()>0) {
-							int ii= Integer.parseInt(ss[i].trim());
-							Action a= withProject.remove(ii);
-							if (a!=null) {
+					for (String value : ss) {
+						if (value.trim().length() > 0) {
+							int ii = Integer.parseInt(value.trim());
+							Action a = withProject.remove(ii);
+							if (a != null) {
 								pp.add(a);
 							}
 						}
@@ -1053,11 +1049,11 @@ public class GTDModel implements Iterable<Folder> {
 			
 			if (s!=null && s.trim().length()>0) {
 				String[] ss= s.trim().split(",");
-				for (int i = 0; i < ss.length; i++) {
-					if (ss[i].trim().length()>0) {
-						int ii= Integer.parseInt(ss[i].trim());
-						Action a= queued.remove(ii);
-						if (a!=null) {
+				for (String value : ss) {
+					if (value.trim().length() > 0) {
+						int ii = Integer.parseInt(value.trim());
+						Action a = queued.remove(ii);
+						if (a != null) {
 							f.add(a);
 						}
 					}
@@ -1079,8 +1075,8 @@ public class GTDModel implements Iterable<Folder> {
 	
 	private void _load_2_1(XMLStreamReader r) throws XMLStreamException  {
 		
-		HashMap<Integer, Action> withProject= new HashMap<Integer, Action>();
-		HashMap<Integer, Action> queued= new HashMap<Integer, Action>();
+		HashMap<Integer, Action> withProject= new HashMap<>();
+		HashMap<Integer, Action> queued= new HashMap<>();
 
 		if (checkTagStart(r,"lists")) {
 
@@ -1201,11 +1197,11 @@ public class GTDModel implements Iterable<Folder> {
 				
 				if (s!=null && s.trim().length()>0) {
 					String[] ss= s.trim().split(",");
-					for (int i = 0; i < ss.length; i++) {
-						if (ss[i].trim().length()>0) {
-							int ii= Integer.parseInt(ss[i].trim());
-							Action a= withProject.remove(ii);
-							if (a!=null) {
+					for (String value : ss) {
+						if (value.trim().length() > 0) {
+							int ii = Integer.parseInt(value.trim());
+							Action a = withProject.remove(ii);
+							if (a != null) {
 								pp.add(a);
 							}
 						}
@@ -1249,11 +1245,11 @@ public class GTDModel implements Iterable<Folder> {
 			
 			if (s!=null && s.trim().length()>0) {
 				String[] ss= s.trim().split(",");
-				for (int i = 0; i < ss.length; i++) {
-					if (ss[i].trim().length()>0) {
-						int ii= Integer.parseInt(ss[i].trim());
-						Action a= queued.remove(ii);
-						if (a!=null) {
+				for (String value : ss) {
+					if (value.trim().length() > 0) {
+						int ii = Integer.parseInt(value.trim());
+						Action a = queued.remove(ii);
+						if (a != null) {
 							f.add(a);
 						}
 					}
@@ -1275,8 +1271,8 @@ public class GTDModel implements Iterable<Folder> {
 
 	private void _load_2_2(XMLStreamReader r) throws XMLStreamException  {
 		
-		HashMap<Integer, Action> withProject= new HashMap<Integer, Action>();
-		HashMap<Integer, Action> queued= new HashMap<Integer, Action>();
+		HashMap<Integer, Action> withProject= new HashMap<>();
+		HashMap<Integer, Action> queued= new HashMap<>();
 
 		if (checkTagStart(r,"lists")) {
 
@@ -1399,11 +1395,11 @@ public class GTDModel implements Iterable<Folder> {
 				
 				if (s!=null && s.trim().length()>0) {
 					String[] ss= s.trim().split(",");
-					for (int i = 0; i < ss.length; i++) {
-						if (ss[i].trim().length()>0) {
-							int ii= Integer.parseInt(ss[i].trim());
-							Action a= withProject.remove(ii);
-							if (a!=null) {
+					for (String value : ss) {
+						if (value.trim().length() > 0) {
+							int ii = Integer.parseInt(value.trim());
+							Action a = withProject.remove(ii);
+							if (a != null) {
 								pp.add(a);
 							}
 						}
@@ -1447,11 +1443,11 @@ public class GTDModel implements Iterable<Folder> {
 			
 			if (s!=null && s.trim().length()>0) {
 				String[] ss= s.trim().split(",");
-				for (int i = 0; i < ss.length; i++) {
-					if (ss[i].trim().length()>0) {
-						int ii= Integer.parseInt(ss[i].trim());
-						Action a= queued.remove(ii);
-						if (a!=null) {
+				for (String value : ss) {
+					if (value.trim().length() > 0) {
+						int ii = Integer.parseInt(value.trim());
+						Action a = queued.remove(ii);
+						if (a != null) {
 							f.add(a);
 						}
 					}
@@ -1513,10 +1509,10 @@ public class GTDModel implements Iterable<Folder> {
 	}
 	
 	public synchronized Folder[] folders() {
-		return folders.values().toArray(new Folder[folders.size()]);
+		return folders.values().toArray(new Folder[0]);
 	}
 	public synchronized Project[] projects() {
-		return projects.values().toArray(new Project[projects.size()]);
+		return projects.values().toArray(new Project[0]);
 	}
 	
 	public synchronized void visit(Visitor v) {
@@ -1564,8 +1560,8 @@ public class GTDModel implements Iterable<Folder> {
 	
 	public void importData(GTDModel m) {
 
-		Map<Integer,Integer> folderMap= new HashMap<Integer, Integer>();
-		Map<String,Folder> folderNames= new HashMap<String, Folder>();
+		Map<Integer,Integer> folderMap= new HashMap<>();
+		Map<String,Folder> folderNames= new HashMap<>();
 		
 		for (Folder f : this) {
 			folderNames.put(f.getName()+"TYPE"+f.getType(), f);

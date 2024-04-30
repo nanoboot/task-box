@@ -48,7 +48,7 @@ public class FoldingPanel extends JPanel {
 	class FoldingButton extends JToggleButton {
 		private static final long serialVersionUID = 1L;
 
-		private JComponent fold;
+		private final JComponent fold;
 
 		public FoldingButton(String name, JComponent f) {
 			super();
@@ -62,21 +62,17 @@ public class FoldingPanel extends JPanel {
 			setPreferredSize(new Dimension(getPreferredSize().width,21));
 			setToolTipText("Displays/hides panel with '"+name+"'.");
 			
-			addItemListener(new ItemListener() {
-			
-				@Override
-				public void itemStateChanged(ItemEvent e) {
-					fold.setVisible(isSelected());
-					if (FoldingPanel.this.getParent()!=null) {
-						FoldingPanel.this.getParent().validate();
-					}
+			addItemListener(e -> {
+				fold.setVisible(isSelected());
+				if (FoldingPanel.this.getParent()!=null) {
+					FoldingPanel.this.getParent().validate();
 				}
 			});
 		}
 	}
 	
 	private JPanel foldingBar;
-	private List<FoldingButton> folds = new ArrayList<FoldingButton>();
+	private final List<FoldingButton> folds = new ArrayList<>();
 	private JLabel titleLabel;
 
 	public FoldingPanel() {

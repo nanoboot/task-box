@@ -26,7 +26,7 @@ package org.nanoboot.forks.org.taskbox.model;
  */
 public class ProjectFilter implements ActionFilter {
 
-	private Integer project;
+	private final Integer project;
 	
 	public ProjectFilter(Integer project) {
 		this.project=project;
@@ -47,9 +47,8 @@ public class ProjectFilter implements ActionFilter {
 	
 	@Override
 	public boolean equals(Object obj) {
-		if (obj instanceof ProjectFilter) {
-			ProjectFilter p= (ProjectFilter)obj;
-			
+		if (obj instanceof ProjectFilter p) {
+
 			return p.project==project;
 			
 		}

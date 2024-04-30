@@ -24,5 +24,5 @@ package org.nanoboot.forks.org.taskbox.model;
  *
  */
 public interface ActionFilter {
-	public boolean isAcceptable(Folder f, Action a);
+	boolean isAcceptable(Folder f, Action a);
 }

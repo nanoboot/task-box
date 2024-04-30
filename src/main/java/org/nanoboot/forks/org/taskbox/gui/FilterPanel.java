@@ -98,12 +98,9 @@ public class FilterPanel extends AbstractFilterPanel {
 		filterProject.setMinimumSize(new Dimension(w,w));
 		tt= "Show actions from selected project.";
 		filterProject.setToolTipText(tt);
-		filterProject.addItemListener(new ItemListener() {
-			@Override
-			public void itemStateChanged(ItemEvent e) {
-				projects.setEnabled(filterProject.isSelected());
-				fireSearch();
-			}
+		filterProject.addItemListener(e -> {
+			projects.setEnabled(filterProject.isSelected());
+			fireSearch();
 		});
 		add(filterProject,new GridBagConstraints(++col,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,0,0,0),0,0));
 	
@@ -111,12 +108,9 @@ public class FilterPanel extends AbstractFilterPanel {
 		projects.setEditable(false);
 		projects.setEnabled(false);
 		projects.setToolTipText(tt);
-		projects.addItemListener(new ItemListener() {
-			@Override
-			public void itemStateChanged(ItemEvent e) {
-				if (isEnabled() && filterProject.isSelected()) {
-					fireSearch();
-				}
+		projects.addItemListener(e -> {
+			if (isEnabled() && filterProject.isSelected()) {
+				fireSearch();
 			}
 		});
 		add(projects,new GridBagConstraints(++col,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,0,0,8),0,0));
@@ -126,26 +120,20 @@ public class FilterPanel extends AbstractFilterPanel {
 		filterPriority.setMinimumSize(new Dimension(w,w));
 		tt= "Show actions with priority higher or equal to selected priority level.";
 		filterPriority.setToolTipText(tt);
-		filterPriority.addItemListener(new ItemListener() {
-		
-			@Override
-			public void itemStateChanged(ItemEvent e) {
-				priority.setEnabled(filterPriority.isSelected());
-				fireSearch();
-			}
+		filterPriority.addItemListener(e -> {
+			priority.setEnabled(filterPriority.isSelected());
+			fireSearch();
 		});
 		add(filterPriority,new GridBagConstraints(++col,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,0,0,0),0,0));
 		
 		priority= new PriorityPicker();
 		priority.setEnabled(false);
-		priority.addPropertyChangeListener(PriorityPicker.PRIORITY_PROPERTY_NAME, new PropertyChangeListener() {
-			@Override
-			public void propertyChange(PropertyChangeEvent evt) {
-				if (isEnabled() && filterPriority.isSelected()) {
-					fireSearch();
-				}
-			}
-		});
+		priority.addPropertyChangeListener(PriorityPicker.PRIORITY_PROPERTY_NAME,
+				evt -> {
+					if (isEnabled() && filterPriority.isSelected()) {
+						fireSearch();
+					}
+				});
 		add(priority,new GridBagConstraints(++col,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,0,0,8),0,0));
 		
 		searchOptionsMenu= new JPopupMenu();
@@ -154,8 +142,8 @@ public class FilterPanel extends AbstractFilterPanel {
 		
 		searchOptionsButton= new JButton();
 		searchOptionsButton.setIcon(new Icon() {
-			Icon find= ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_search);		
-			Icon down= ApplicationHelper.getIcon(ApplicationHelper.icon_name_tiny_options);
+			final Icon find= ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_search);
+			final Icon down= ApplicationHelper.getIcon(ApplicationHelper.icon_name_tiny_options);
 			
 			public void paintIcon(Component c, Graphics g, int x, int y) {
 				if (find==null || down==null) {
@@ -175,8 +163,8 @@ public class FilterPanel extends AbstractFilterPanel {
 		
 		});
 		searchOptionsButton.setDisabledIcon(new Icon() {
-			Icon find= new ImageIcon(GrayFilter.createDisabledImage(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_search).getImage()));		
-			Icon down= new ImageIcon(GrayFilter.createDisabledImage(ApplicationHelper.getIcon(ApplicationHelper.icon_name_tiny_options).getImage()));
+			final Icon find= new ImageIcon(GrayFilter.createDisabledImage(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_search).getImage()));
+			final Icon down= new ImageIcon(GrayFilter.createDisabledImage(ApplicationHelper.getIcon(ApplicationHelper.icon_name_tiny_options).getImage()));
 			
 			public void paintIcon(Component c, Graphics g, int x, int y) {
 				if (find==null || down==null) {
@@ -195,13 +183,8 @@ public class FilterPanel extends AbstractFilterPanel {
 			}
 		
 		});
-		searchOptionsButton.addActionListener(new ActionListener() {
-		
-			public void actionPerformed(ActionEvent e) {
-				searchOptionsMenu.show(searchOptionsButton, 0, searchOptionsButton.getHeight());
-			}
-		
-		});
+		searchOptionsButton.addActionListener(
+				e -> searchOptionsMenu.show(searchOptionsButton, 0, searchOptionsButton.getHeight()));
 		searchOptionsButton.setMargin(new Insets(0,0,0,0));
 		add(searchOptionsButton,new GridBagConstraints(++col,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
 		
@@ -256,22 +239,13 @@ public class FilterPanel extends AbstractFilterPanel {
 			}
 		
 		});
-		criterionText.addActionListener(new ActionListener() {
-		
-			public void actionPerformed(ActionEvent e) {
-				fireSearch();
-			}
-		
-		});
+		criterionText.addActionListener(e -> fireSearch());
 		add(criterionText,new GridBagConstraints(++col,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,new Insets(0,0,0,0),0,0));
 		
 		clearButton = new JButton();
-		clearButton.addActionListener(new ActionListener() {
-			
-			public void actionPerformed(ActionEvent e) {
-				criterionText.setText(ApplicationHelper.EMPTY_STRING);
-				fireSearch();
-			}
+		clearButton.addActionListener(e -> {
+			criterionText.setText(ApplicationHelper.EMPTY_STRING);
+			fireSearch();
 		});
 		clearButton.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_clear));
 		clearButton.setMargin(new Insets(0,0,0,0));

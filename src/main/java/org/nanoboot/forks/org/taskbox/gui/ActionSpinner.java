@@ -191,15 +191,11 @@ public class ActionSpinner extends JPanel implements FolderListener {
 		
 		spinner= new JSpinner();
 		spinner.setEditor(jp);
-		spinner.addChangeListener(new ChangeListener() {
-		
-			public void stateChanged(ChangeEvent e) {
-				Action a= selectedAction;
-				selectedAction= (Action)spinner.getValue();
-				updateGUI();
-				firePropertyChange("selectedAction", a, selectedAction);
-			}
-		
+		spinner.addChangeListener(e -> {
+			Action a= selectedAction;
+			selectedAction= (Action)spinner.getValue();
+			updateGUI();
+			firePropertyChange("selectedAction", a, selectedAction);
 		});
 		model= new FolderModel();
 		spinner.setModel(model);

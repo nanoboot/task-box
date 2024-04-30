@@ -69,24 +69,12 @@ public class JournalPane extends JPanel {
 		jp.setLayout(new GridBagLayout());
 		
 		JButton b= new JButton("<<");
-		b.addActionListener(new ActionListener() {
-		
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				setDay(day-7);
-			}
-		});		
+		b.addActionListener(e -> setDay(day - 7));
 		b.setToolTipText("Previous week");
 		jp.add(b, new GridBagConstraints(0,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
 		
 		b= new JButton("<");
-		b.addActionListener(new ActionListener() {
-		
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				setDay(day-1);
-			}
-		});		
+		b.addActionListener(e -> setDay(day - 1));
 		b.setToolTipText("Previous day");
 		jp.add(b, new GridBagConstraints(1,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
 
@@ -96,36 +84,20 @@ public class JournalPane extends JPanel {
 		//datePicker.setShowTodayButton(true);
 		//datePicker.setStripTime(true);
 		//datePicker.setShowNoneButton(false);
-		datePicker.addChangeListener(new ChangeListener() {
-		
-			@Override
-			public void stateChanged(ChangeEvent e) {
-				setting=true;
-				//System.out.println("PICKER "+datePicker.getDate().getTime()+" "+((Date)evt.getNewValue()).getTime());
-				setDate((Date)datePicker.getDate());
-				setting=false;
-			}
+		datePicker.addChangeListener(e -> {
+			setting=true;
+			//System.out.println("PICKER "+datePicker.getDate().getTime()+" "+((Date)evt.getNewValue()).getTime());
+			setDate((Date)datePicker.getDate());
+			setting=false;
 		});
 		jp.add(datePicker, new GridBagConstraints(2,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
 
 		b= new JButton(">");
-		b.addActionListener(new ActionListener() {
-		
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				setDay(day+1);
-			}
-		});		
+		b.addActionListener(e -> setDay(day + 1));
 		b.setToolTipText("Next day");
 		jp.add(b, new GridBagConstraints(3,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
 		b= new JButton(">>");
-		b.addActionListener(new ActionListener() {
-		
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				setDay(day+7);
-			}
-		});		
+		b.addActionListener(e -> setDay(day + 7));
 		b.setToolTipText("Next week");
 		jp.add(b, new GridBagConstraints(4,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
 		

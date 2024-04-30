@@ -45,7 +45,7 @@ import org.nanoboot.forks.org.taskbox.model.Folder.FolderType;
  */
 public class ModelTest extends TestCase {
 	
-	class TestModelListener implements GTDModelListener {
+	static class TestModelListener implements GTDModelListener {
 		FolderEvent actionAdded;
 		ActionEvent actionModified;
 		FolderEvent actionRemoved;
@@ -82,7 +82,7 @@ public class ModelTest extends TestCase {
 	GTDModel gtdModel;
 	Folder f1;
 	Project p1;
-	File testDir= new File("src/test/resources");
+	final File testDir= new File("src/test/resources");
 
 	/* (non-Javadoc)
 	 * @see junit.framework.TestCase#setUp()
@@ -514,15 +514,14 @@ public class ModelTest extends TestCase {
 		Folder[] ff2= m2.folders();
 		Folder[] ff1= m1.folders();
 
-		Map<String, Folder> m= new HashMap<String, Folder>();
+		Map<String, Folder> m= new HashMap<>();
 
-		for (int i = 0; i < ff2.length; i++) {
-			m.put(ff2[i].getName(), ff2[i]);
+		for (Folder actions : ff2) {
+			m.put(actions.getName(), actions);
 		}
 
-		for (int j = 0; j < ff1.length; j++) {
-			Folder f1= ff1[j];
-			Folder f2= m.get(f1.getName());
+		for (Folder f1 : ff1) {
+			Folder f2 = m.get(f1.getName());
 
 			assertEquals(f1.getName(), f2.getName());
 /*			if (f1.getName().equals("ANKA 2008")) {
@@ -536,20 +535,24 @@ public class ModelTest extends TestCase {
 				}
 			}
 */
-			assertEquals(f1.getName(),f1.size(), f2.size());
+			assertEquals(f1.getName(), f1.size(), f2.size());
 			assertEquals(f1.getType(), f2.getType());
 
-			if (!f1.isProject() && f1.getId()!=m1.getResolvedFolder().getId() && f1.getId()!=m1.getDeletedFolder().getId()) {
+			if (!f1.isProject() && f1.getId() != m1.getResolvedFolder().getId()
+				&& f1.getId() != m1.getDeletedFolder().getId()) {
 				for (int i = 0; i < f1.size(); i++) {
-					Action a1= f1.get(i);
-					Action a2= f2.get(i);
-					assertEquals(f1.getName(),a1.getDescription(), a2.getDescription());
-					assertEquals(f1.getName(),a1.getUrl(), a2.getUrl());
-					assertEquals(f1.getName(),a1.getPriority(), a2.getPriority());
-					assertEquals(f1.getName(),a1.getRemind(), a2.getRemind());
-					if (a1.getProject()!=null) {
+					Action a1 = f1.get(i);
+					Action a2 = f2.get(i);
+					assertEquals(f1.getName(), a1.getDescription(),
+							a2.getDescription());
+					assertEquals(f1.getName(), a1.getUrl(), a2.getUrl());
+					assertEquals(f1.getName(), a1.getPriority(),
+							a2.getPriority());
+					assertEquals(f1.getName(), a1.getRemind(), a2.getRemind());
+					if (a1.getProject() != null) {
 						assertNotNull(a2.getProject());
-						assertEquals(m1.getProject(a1.getProject()).getName(), m2.getProject(a2.getProject()).getName());
+						assertEquals(m1.getProject(a1.getProject()).getName(),
+								m2.getProject(a2.getProject()).getName());
 					}
 				}
 			}

@@ -58,7 +58,7 @@ public class FolderTree extends JTree {
 	
 	private static final long serialVersionUID = 1L;
 
-	class SortedTreeNode extends DefaultMutableTreeNode implements Comparator<TreeNode> {
+	static class SortedTreeNode extends DefaultMutableTreeNode implements Comparator<TreeNode> {
 		
 		
 		private static final long serialVersionUID = 4899968443878756400L;
@@ -83,7 +83,7 @@ public class FolderTree extends JTree {
 		public void add(MutableTreeNode newChild) {
 			super.add(newChild);
 			
-			Collections.sort(children, this);
+			children.sort(this);
 		}
 		public int compare(TreeNode o1, TreeNode o2) {
 			if(!(o1 instanceof DefaultMutableTreeNode)) {
@@ -103,7 +103,7 @@ public class FolderTree extends JTree {
 		@SuppressWarnings("unchecked")
 		public void sort() {
 			if (children!=null) {
-				Collections.sort(children, this);
+				children.sort(this);
 			}
 		}
 	}
@@ -144,26 +144,22 @@ public class FolderTree extends JTree {
 		setToggleClickCount(1);
 		setEditable(false);
 		
-		actions= new SortedTreeNode("Actions",true);
-		meta= new SortedTreeNode("Default Lists",true);
-		references= new SortedTreeNode("References",true);
-		someday= new SortedTreeNode("Someday/Maybe",true);
-		projects= new SortedTreeNode("Projects",true);
+		actions= new SortedTreeNode("Actions", true);
+		meta= new SortedTreeNode("Default Lists", true);
+		references= new SortedTreeNode("References", true);
+		someday= new SortedTreeNode("Someday/Maybe", true);
+		projects= new SortedTreeNode("Projects", true);
 		
-		addTreeSelectionListener(new TreeSelectionListener() {
-		
-			public void valueChanged(TreeSelectionEvent e) {
-				Folder old= selectedFolder;
-				selectedFolder= null;
-				if (e.getNewLeadSelectionPath()!=null) {
-					Object o= ((DefaultMutableTreeNode)e.getNewLeadSelectionPath().getLastPathComponent()).getUserObject();
-					if (o instanceof Folder) {
-						selectedFolder= (Folder)o;
-					}
+		addTreeSelectionListener(e -> {
+			Folder old= selectedFolder;
+			selectedFolder= null;
+			if (e.getNewLeadSelectionPath()!=null) {
+				Object o= ((DefaultMutableTreeNode)e.getNewLeadSelectionPath().getLastPathComponent()).getUserObject();
+				if (o instanceof Folder) {
+					selectedFolder= (Folder)o;
 				}
-				firePropertyChange("selectedFolder", old, selectedFolder);
 			}
-		
+			firePropertyChange("selectedFolder", old, selectedFolder);
 		});
 		
 		setCellRenderer(new DefaultTreeCellRenderer() {
@@ -236,8 +232,8 @@ public class FolderTree extends JTree {
 					//System.out.println(tp);
 					//System.out.println(tp.getLastPathComponent());
 					DefaultMutableTreeNode n= (DefaultMutableTreeNode)tp.getLastPathComponent();
-					if (n!=null && n.getUserObject() instanceof Folder && a!=null) {
-						Folder target= (Folder)n.getUserObject();
+					if (n!=null && n.getUserObject() instanceof Folder target
+						&& a != null) {
 						gtdModel.moveAction(a, target);
 						return true;
 					}
@@ -637,7 +633,7 @@ public class FolderTree extends JTree {
 
 	public int[] getExpendedNodes() {
 		
-		List<Integer> i= new ArrayList<Integer>();
+		List<Integer> i= new ArrayList<>();
 		Enumeration<TreePath> en= getExpandedDescendants(new TreePath(root.getPath()));
 		
 		if (en==null) {

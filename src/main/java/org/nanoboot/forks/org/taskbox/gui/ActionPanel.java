@@ -292,21 +292,17 @@ public class ActionPanel extends JPanel implements FolderListener {
 		}
 		
 		projectCombo= new ProjectsCombo();
-		projectCombo.addPropertyChangeListener("selectedProject", new PropertyChangeListener() {
-		
-			public void propertyChange(PropertyChangeEvent evt) {
-				if (setting || action==null) {
-					return;
-				}
-				setting= true;
-				if (projectCombo.getSelectedProject()!=null) {
-					action.setProject(projectCombo.getSelectedProject().getId());
-				} else {
-					action.setProject(null);
-				}
-				setting=false;
+		projectCombo.addPropertyChangeListener("selectedProject", evt -> {
+			if (setting || action==null) {
+				return;
 			}
-		
+			setting= true;
+			if (projectCombo.getSelectedProject()!=null) {
+				action.setProject(projectCombo.getSelectedProject().getId());
+			} else {
+				action.setProject(null);
+			}
+			setting=false;
 		});
 		if (packHorizontal) {
 			add(projectCombo, new GridBagConstraints(1,row,2,1,1,0,GridBagConstraints.WEST,GridBagConstraints.NONE,new Insets(1,1,1,1),0,0));
@@ -346,15 +342,10 @@ public class ActionPanel extends JPanel implements FolderListener {
 		datePicker.setPreferredSize(new Dimension(125,datePicker.getPreferredSize().height-3));
 		d= new Dimension(datePicker.getPreferredSize().height,datePicker.getPreferredSize().height);
 		datePicker.setDate(null);
-		datePicker.addChangeListener(new ChangeListener() {
-		
-			@Override
-			public void stateChanged(ChangeEvent e) {
-				if (action!=null) {
-					action.setRemind(datePicker.getDate());
-				}
+		datePicker.addChangeListener(e -> {
+			if (action!=null) {
+				action.setRemind(datePicker.getDate());
 			}
-		
 		});
 		pp.add(datePicker, new GridBagConstraints(0,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
 		
@@ -365,16 +356,13 @@ public class ActionPanel extends JPanel implements FolderListener {
 		previousDayButton.setMargin(new Insets(1,1,1,1));
 		previousDayButton.setToolTipText("Select previous day");
 		previousDayButton.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_previous));
-		previousDayButton.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				if (datePicker.getDate()==null) {
-					datePicker.setDate(new Date());
-				} else {
-					Calendar cc= datePicker.getCalendar();
-					cc.set(Calendar.DAY_OF_MONTH, cc.get(Calendar.DAY_OF_MONTH)-1);
-					datePicker.setCalendar(cc);
-				}
+		previousDayButton.addActionListener(e -> {
+			if (datePicker.getDate()==null) {
+				datePicker.setDate(new Date());
+			} else {
+				Calendar cc= datePicker.getCalendar();
+				cc.set(Calendar.DAY_OF_MONTH, cc.get(Calendar.DAY_OF_MONTH)-1);
+				datePicker.setCalendar(cc);
 			}
 		});
 		pp.add(previousDayButton, new GridBagConstraints(1,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
@@ -385,16 +373,13 @@ public class ActionPanel extends JPanel implements FolderListener {
 		nextDayButton.setMargin(new Insets(1,1,1,1));
 		nextDayButton.setToolTipText("Select next day");
 		nextDayButton.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_next));
-		nextDayButton.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				if (datePicker.getDate()==null) {
-					datePicker.setDate(new Date());
-				} else {
-					Calendar cc= datePicker.getCalendar();
-					cc.set(Calendar.DAY_OF_MONTH, cc.get(Calendar.DAY_OF_MONTH)+1);
-					datePicker.setCalendar(cc);
-				}
+		nextDayButton.addActionListener(e -> {
+			if (datePicker.getDate()==null) {
+				datePicker.setDate(new Date());
+			} else {
+				Calendar cc= datePicker.getCalendar();
+				cc.set(Calendar.DAY_OF_MONTH, cc.get(Calendar.DAY_OF_MONTH)+1);
+				datePicker.setCalendar(cc);
 			}
 		});
 		pp.add(nextDayButton, new GridBagConstraints(2,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
@@ -405,12 +390,7 @@ public class ActionPanel extends JPanel implements FolderListener {
 		clearDateButton.setMargin(new Insets(1,1,1,1));
 		clearDateButton.setToolTipText("Clear date selection");
 		clearDateButton.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_clear));
-		clearDateButton.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				datePicker.setDate(null);
-			}
-		});
+		clearDateButton.addActionListener(e -> datePicker.setDate(null));
 		pp.add(clearDateButton, new GridBagConstraints(3,0,1,1,0,0,GridBagConstraints.CENTER,GridBagConstraints.NONE,new Insets(0,0,0,0),0,0));
 
 		if (packHorizontal) {
@@ -430,17 +410,13 @@ public class ActionPanel extends JPanel implements FolderListener {
 		}
 		
 		priorityPanel= new PriorityPicker();
-		priorityPanel.addPropertyChangeListener("priority",new PropertyChangeListener() {
-		
-			@Override
-			public void propertyChange(PropertyChangeEvent evt) {
-				if (setting || action==null) {
-					return;
-				}
-				setting= true;
-				action.setPriority(priorityPanel.getPriority());
-				setting=false;
+		priorityPanel.addPropertyChangeListener("priority", evt -> {
+			if (setting || action==null) {
+				return;
 			}
+			setting= true;
+			action.setPriority(priorityPanel.getPriority());
+			setting=false;
 		});
 		if (packHorizontal) {
 			add(priorityPanel, new GridBagConstraints(1,row,2,1,1,0,GridBagConstraints.WEST,GridBagConstraints.NONE,new Insets(4,1,4,1),0,0));
@@ -800,13 +776,8 @@ public class ActionPanel extends JPanel implements FolderListener {
 	public void setEngine(GTDBoxEngine e) {
 		this.engine = e;
 		projectCombo.setGTDModel(engine.getGTDModel());
-		engine.getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_ALL_ACTIONS, new PropertyChangeListener() {
-		
-			@Override
-			public void propertyChange(PropertyChangeEvent evt) {
-				reopenButton.setVisible(engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
-			}
-		});
+		engine.getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_ALL_ACTIONS,
+				evt -> reopenButton.setVisible(engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS)));
 		reopenButton.setVisible(reopenButtonVisible || engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
 	}
 	

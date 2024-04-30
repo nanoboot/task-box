@@ -38,22 +38,22 @@ import org.nanoboot.forks.org.taskbox.model.GTDModelAdapter;
  */
 public class SelectionModel {
 	
-	public static enum SelectionMode { Lists, Projects, Lists_and_projects, Actions }
-	public static enum FilterAggregator { AND, OR };
-	
+	public enum SelectionMode { Lists, Projects, Lists_and_projects, Actions }
+	public enum FilterAggregator { AND, OR }
+
 	private static final String PROP_SELECTED_FOLDERS = "selectedFolders";
 	private static final String PROP_SELECTED_ACTIONS = "selectedActions";
 	
-	private SelectionMode selectionMode= SelectionMode.Lists;
+	private final SelectionMode selectionMode= SelectionMode.Lists;
 	private GTDModel model;
 	
-	private List<Folder>selectedFolders = new ArrayList<Folder>();
-	private List<Action>selectedActions = new ArrayList<Action>();
+	private final List<Folder>selectedFolders = new ArrayList<>();
+	private final List<Action>selectedActions = new ArrayList<>();
 	
-	private List<ActionFilter> selectionFilters= new ArrayList<ActionFilter>();
+	private final List<ActionFilter> selectionFilters= new ArrayList<>();
 	
-	private PropertyChangeSupport prop= new PropertyChangeSupport(this);
-	private FilterAggregator filterAggregator= FilterAggregator.AND;
+	private final PropertyChangeSupport prop= new PropertyChangeSupport(this);
+	private final FilterAggregator filterAggregator= FilterAggregator.AND;
 	
 	public void addPropertyChangeListener(PropertyChangeListener l) {
 		prop.addPropertyChangeListener(l);

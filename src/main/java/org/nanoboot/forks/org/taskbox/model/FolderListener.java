@@ -26,8 +26,8 @@ import java.util.EventListener;
  *
  */
 public interface FolderListener extends EventListener {
-	public void elementAdded(FolderEvent a);
-	public void elementRemoved(FolderEvent a);
-	public void elementModified(ActionEvent a);
-	public void orderChanged(Folder f);
+	void elementAdded(FolderEvent a);
+	void elementRemoved(FolderEvent a);
+	void elementModified(ActionEvent a);
+	void orderChanged(Folder f);
 }

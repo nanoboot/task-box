@@ -29,7 +29,7 @@ import java.util.List;
  */
 public class FilterList implements ActionFilter {
 
-	private List<ActionFilter> filters= new ArrayList<ActionFilter>(5);
+	private final List<ActionFilter> filters= new ArrayList<>(5);
 	
 	/* (non-Javadoc)
 	 * @see org.gtdfree.model.ActionFilter#isAccepted(org.gtdfree.model.Folder, org.gtdfree.model.Action)
@@ -57,14 +57,13 @@ public class FilterList implements ActionFilter {
 	}
 	
 	public ActionFilter[] filters() {
-		return filters.toArray(new ActionFilter[filters.size()]);
+		return filters.toArray(new ActionFilter[0]);
 	}
 	
 	@Override
 	public boolean equals(Object obj) {
 		
-		if (obj instanceof FilterList) {
-			FilterList fl= (FilterList)obj;
+		if (obj instanceof FilterList fl) {
 
 			return fl.filters.equals(filters);
 		}

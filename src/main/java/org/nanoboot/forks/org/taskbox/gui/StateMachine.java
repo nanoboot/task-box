@@ -27,15 +27,15 @@ import org.nanoboot.forks.org.taskbox.model.Folder;
  */
 public class StateMachine {
 	
-	public static enum Panel {
-		COLLECTING,PROCESSING,ORGANIZING,EXECUTING,JOURNALING;
+	public enum Panel {
+		COLLECTING,PROCESSING,ORGANIZING,EXECUTING,JOURNALING
 	}
 	
-	public static enum States {
+	public enum States {
 		SHOW_ALL_ACTIONS, SHOW_RESOLVED_COLUMN, SHOW_REMIND_COLUMN, CANGE_ACTION_ORDER, DEFAULT_TREE_BRANCH, SHOW_PRIORITY_COLUMN, SHOW_PROJECT_COLUMN, SHOW_FOLDER_COLUMN
 	}
 	
-	private boolean[][] table=
+	private final boolean[][] table=
 	//                     INBUCKET,ACTION,REFERENCE,BUILDIN,PROJECT,QUEUE,BUILDIN_REMIND,BUILDIN_RESOLVED,BUILDIN_PRIORITY,SOMEDAY,BUILDIN_DELETED
 	/*SHOW_ALL_ACTIONS*/    {{false, false,    false,  false,  false,false,         false,            true,           false,  false,           true},
 	/*SHOW_RESOLVED_COLUMN*/ {false, false,    false,  false,  false,false,         false,            true,           false,  false,           true},

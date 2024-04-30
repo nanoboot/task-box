@@ -41,7 +41,7 @@ import org.nanoboot.forks.org.taskbox.journal.JournalTools;
 public class IntervalFieldPanel extends JPanel implements JournalEntryListener {
 
 	private static final long serialVersionUID = 1L;
-	private List<IntervalField> fields= new ArrayList<IntervalField>();
+	private final List<IntervalField> fields= new ArrayList<>();
 	//private JPanel strech= new JPanel();
 	private JournalEntry entry;
 	

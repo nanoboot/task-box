@@ -43,7 +43,7 @@ public class ActionFolderList extends JTable {
 	
 	private static final long serialVersionUID = 1L;
 
-	class CellRenderer extends DefaultTableCellRenderer {
+	static class CellRenderer extends DefaultTableCellRenderer {
 		private static final long serialVersionUID = 1L;
 		public CellRenderer() {
 		}
@@ -56,10 +56,10 @@ public class ActionFolderList extends JTable {
 		}
 	}
 	
-	class FolderTableModel extends AbstractTableModel implements Comparator<Folder> {
+	static class FolderTableModel extends AbstractTableModel implements Comparator<Folder> {
 		
 		private static final long serialVersionUID = -3898990048337029213L;
-		List<Folder> data = new ArrayList<Folder>();
+		final List<Folder> data = new ArrayList<>();
 
 		public int addFolder(Folder f) {
 			data.add(f);
@@ -84,7 +84,7 @@ public class ActionFolderList extends JTable {
 		}
 		
 		private void sort() {
-			Collections.sort(data,this);
+			data.sort(this);
 		}
 		
 		public int getColumnCount() {
@@ -135,7 +135,7 @@ public class ActionFolderList extends JTable {
 	}
 	
 	private GTDModel gtdModel;
-	private FolderTableModel model= new FolderTableModel();
+	private final FolderTableModel model= new FolderTableModel();
 	
 	public ActionFolderList() {
 		initialize();

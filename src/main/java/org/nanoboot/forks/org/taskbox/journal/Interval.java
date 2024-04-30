@@ -26,8 +26,8 @@ package org.nanoboot.forks.org.taskbox.journal;
  */
 public class Interval implements Comparable<Interval> {
 
-	private int start;
-	private int end;
+	private final int start;
+	private final int end;
 	
 	public Interval(int st, int en) {
 		start=st;

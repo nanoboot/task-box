@@ -82,13 +82,10 @@ public class IntervalField extends JPanel implements JournalEntryListener {
 				return toInterval(s)!=null;
 			}
 		});
-		field.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				setting=true;
-				updateInterval(toInterval(field.getText()));
-				setting=false;
-			}
+		field.addActionListener(e -> {
+			setting=true;
+			updateInterval(toInterval(field.getText()));
+			setting=false;
 		});
 		
 		add(field, new GridBagConstraints(0,0,1,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH, new Insets(0,0,0,0),0,0));
@@ -98,26 +95,17 @@ public class IntervalField extends JPanel implements JournalEntryListener {
 		JButton b= new JButton();
 		b.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_add));
 		b.setMargin(new Insets(0,0,0,0));
-		b.addActionListener(new ActionListener() {
-		
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				int i= interval.getEnd();
-				IntervalField.this.parent.addInterval(new Interval(i,i+60));
-			}
+		b.addActionListener(e -> {
+			int i= interval.getEnd();
+			IntervalField.this.parent.addInterval(new Interval(i,i+60));
 		});
 		add(b, new GridBagConstraints(1,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,11,0,0),0,0));
 		
 		removeButton= new JButton();
 		removeButton.setIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_remove));
 		removeButton.setMargin(new Insets(0,0,0,0));
-		removeButton.addActionListener(new ActionListener() {
-		
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				IntervalField.this.parent.removeField(IntervalField.this);
-			}
-		});
+		removeButton.addActionListener(
+				e -> IntervalField.this.parent.removeField(IntervalField.this));
 		add(removeButton, new GridBagConstraints(2,0,1,1,0.0,0.0,GridBagConstraints.CENTER,GridBagConstraints.NONE, new Insets(0,0,0,0),0,0));
 
 		updateInterval(entry.getInterval(index));

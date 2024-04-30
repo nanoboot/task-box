@@ -88,17 +88,13 @@ public class ProcessPane extends JSplitPane {
 		jpp.setLayout(new GridBagLayout());
 		jpp.setBorder(new TitledBorder("In-Bucket"));
 		actionSpinner= new ActionSpinner();
-		actionSpinner.addPropertyChangeListener("selectedAction", new PropertyChangeListener() {
-		
-			public void propertyChange(PropertyChangeEvent evt) {
-				boolean b= actionSpinner.getSelectedAction()!=null;
-				getDeleteAction().setEnabled(b);
-				getResolveAction().setEnabled(b);
-				
-				b= b && folders.getSelectedFolder()!=null;
-				getMoveAction().setEnabled(b);
-			}
-		
+		actionSpinner.addPropertyChangeListener("selectedAction", evt -> {
+			boolean b= actionSpinner.getSelectedAction()!=null;
+			getDeleteAction().setEnabled(b);
+			getResolveAction().setEnabled(b);
+
+			b= b && folders.getSelectedFolder()!=null;
+			getMoveAction().setEnabled(b);
 		});
 		
 		jpp.add(actionSpinner,new GridBagConstraints(0,0,3,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(4,4,0,4),0,0));
@@ -132,13 +128,9 @@ public class ProcessPane extends JSplitPane {
 		
 		folders= new FolderPanel();
 		folders.setDefaultFoldersVisible(false);
-		folders.addPropertyChangeListener("selectedFolder", new PropertyChangeListener() {
-		
-			public void propertyChange(PropertyChangeEvent evt) {
-				actionTable.setFolder(folders.getSelectedFolder());
-				getMoveAction().setEnabled(actionSpinner.getSelectedAction()!=null && folders.getSelectedFolder()!=null);
-			}
-		
+		folders.addPropertyChangeListener("selectedFolder", evt -> {
+			actionTable.setFolder(folders.getSelectedFolder());
+			getMoveAction().setEnabled(actionSpinner.getSelectedAction()!=null && folders.getSelectedFolder()!=null);
 		});
 		jp.add(folders,new GridBagConstraints(0,0,2,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(4,4,4,4),0,0));
 		
@@ -155,11 +147,8 @@ public class ProcessPane extends JSplitPane {
 
 		actionTable= new ActionTable();
 		actionTable.setMoveEnabled(true);
-		actionTable.addPropertyChangeListener("selectedAction",new PropertyChangeListener() {
-			public void propertyChange(PropertyChangeEvent evt) {
-				actionPanel.setAction(actionTable.getSelectedAction());
-			}
-		});
+		actionTable.addPropertyChangeListener("selectedAction",
+				evt -> actionPanel.setAction(actionTable.getSelectedAction()));
 		JScrollPane jsp = new JScrollPane(actionTable);
 		jp.add(jsp,new GridBagConstraints(0,1,1,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(4,4,4,4),0,0));
 		

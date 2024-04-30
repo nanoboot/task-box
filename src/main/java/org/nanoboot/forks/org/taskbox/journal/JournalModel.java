@@ -37,36 +37,36 @@ public class JournalModel {
 		@Override
 		public void journalEntryIntervalRemoved(JournalEntryEvent e) {
 			JournalModelListener[] l= listeners.getListeners(JournalModelListener.class);
-			
-			for (int i = 0; i < l.length; i++) {
-				l[i].journalEntryIntervalRemoved(e);
+
+			for (JournalModelListener journalModelListener : l) {
+				journalModelListener.journalEntryIntervalRemoved(e);
 			}
 		}
 	
 		@Override
 		public void journalEntryIntervalAdded(JournalEntryEvent e) {
 			JournalModelListener[] l= listeners.getListeners(JournalModelListener.class);
-			
-			for (int i = 0; i < l.length; i++) {
-				l[i].journalEntryIntervalAdded(e);
+
+			for (JournalModelListener journalModelListener : l) {
+				journalModelListener.journalEntryIntervalAdded(e);
 			}
 		}
 	
 		@Override
 		public void journalEntryChanged(JournalEntryEvent e) {
 			JournalModelListener[] l= listeners.getListeners(JournalModelListener.class);
-			
-			for (int i = 0; i < l.length; i++) {
-				l[i].journalEntryChanged(e);
+
+			for (JournalModelListener journalModelListener : l) {
+				journalModelListener.journalEntryChanged(e);
 			}
 		}
 	
 		@Override
 		public void journalEntryAdded(JournalEntryEvent e) {
 			JournalModelListener[] l= listeners.getListeners(JournalModelListener.class);
-			
-			for (int i = 0; i < l.length; i++) {
-				l[i].journalEntryAdded(e);
+
+			for (JournalModelListener journalModelListener : l) {
+				journalModelListener.journalEntryAdded(e);
 			}
 		}
 
@@ -74,23 +74,22 @@ public class JournalModel {
 			JournalEntryEvent e= new JournalEntryEvent(je,"entries",je,null,-1); 
 			journalEntryAdded(e);
 		}
-	};
+	}
 
-	
-	private int lastEntryID=0; 
-	private Map<Long,List<JournalEntry>> data;
-	private EventListenerList listeners= new EventListenerList();
-	private EventHandler eventHandler= new EventHandler();
+	private int lastEntryID=0;
+	private final Map<Long,List<JournalEntry>> data;
+	private final EventListenerList listeners= new EventListenerList();
+	private final EventHandler eventHandler= new EventHandler();
 
 	public JournalModel() {
-		data= new HashMap<Long, List<JournalEntry>>();
+		data= new HashMap<>();
 	}
 	
 	public JournalEntry[] getEntries(long day) {
 		List<JournalEntry> l= data.get(day);
 		
 		if (l!=null) {
-			return l.toArray(new JournalEntry[l.size()]);
+			return l.toArray(new JournalEntry[0]);
 		}
 		
 		return null;
@@ -99,12 +98,9 @@ public class JournalModel {
 	public JournalEntry addEntry(long day) {
 		
 		JournalEntry e= new JournalEntry(lastEntryID++);
-		
-		List<JournalEntry> l= data.get(day);
-		if (l==null) {
-			l= new ArrayList<JournalEntry>();
-			data.put(day, l);
-		}
+
+		List<JournalEntry> l =
+				data.computeIfAbsent(day, k -> new ArrayList<JournalEntry>());
 		l.add(e);
 		
 		e.addJournalEntryListener(eventHandler);

@@ -63,17 +63,13 @@ public class ExecutePane extends JPanel {
 		queueTable= new ActionTable();
 		queueTable.setCellAction(ActionTable.CellAction.RESOLVE);
 		queueTable.setMoveEnabled(true);
-		queueTable.addPropertyChangeListener(ActionTable.SELECTED_ACTION_PROPERTY_NAME, new PropertyChangeListener() {
-		
-			@Override
-			public void propertyChange(PropertyChangeEvent evt) {
-				actionPanel.setAction(queueTable.getSelectedAction());
-				/*if (queueTable.getSelectedAction()==null && queueTable.getRowCount()>0) {
-					queueTable.getSelectionModel().setSelectionInterval(0, 0);
-				}*/
-			}
-		
-		});
+		queueTable.addPropertyChangeListener(ActionTable.SELECTED_ACTION_PROPERTY_NAME,
+				evt -> {
+					actionPanel.setAction(queueTable.getSelectedAction());
+					/*if (queueTable.getSelectedAction()==null && queueTable.getRowCount()>0) {
+						queueTable.getSelectionModel().setSelectionInterval(0, 0);
+					}*/
+				});
 		
 		JPanel jp= new JPanel();
 		jp.setLayout(new BorderLayout());

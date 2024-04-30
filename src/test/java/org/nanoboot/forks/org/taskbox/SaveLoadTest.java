@@ -35,7 +35,7 @@ import org.nanoboot.forks.org.taskbox.model.Folder.FolderType;
  */
 public class SaveLoadTest extends TestCase {
 	
-	File outFile1= new File("out1.xml");
+	final File outFile1= new File("out1.xml");
 	
 	public void testSaveLoadSave() {
 		

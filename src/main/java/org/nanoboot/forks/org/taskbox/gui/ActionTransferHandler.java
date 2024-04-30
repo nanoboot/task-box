@@ -33,8 +33,8 @@ public abstract class ActionTransferHandler extends TransferHandler {
 
 	private static final long serialVersionUID = 1L;
 
-	class ActionTransfer implements Transferable {
-		Integer id;
+	static class ActionTransfer implements Transferable {
+		final Integer id;
 		public ActionTransfer(Integer i) {
 			id=i;
 		}
@@ -71,9 +71,7 @@ public abstract class ActionTransferHandler extends TransferHandler {
 		Integer i=null;
 		try {
 			drop= support.getTransferable().getTransferData(ACTION_FLAVOR);
-		} catch (UnsupportedFlavorException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
+		} catch (UnsupportedFlavorException | IOException e) {
 			e.printStackTrace();
 		}
 		if (drop!=null) {
@@ -93,8 +91,8 @@ public abstract class ActionTransferHandler extends TransferHandler {
 	@Override
 	public boolean canImport(TransferSupport support) {
 		DataFlavor[] f= support.getDataFlavors();
-		for (int i = 0; i < f.length; i++) {
-			if (f[i]==ACTION_FLAVOR) {
+		for (DataFlavor dataFlavor : f) {
+			if (dataFlavor == ACTION_FLAVOR) {
 				//System.out.println("CAN IMPORT TRUE "+component.getClass().getName()+" "+support.getComponent().getClass().getName()+" "+support.getTransferable());
 				return true;
 			}

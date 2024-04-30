@@ -85,22 +85,18 @@ public class OrganizePane extends JPanel {
 		filterPanel.setEngine(engine);
 		actions.setEngine(engine);
 		actions.setShowAll(engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
-		engine.getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_ALL_ACTIONS, new PropertyChangeListener() {
-			public void propertyChange(PropertyChangeEvent evt) {
-				Folder f= actions.getFolder();
-				if (f!=null) {
-					actions.setShowAll(getEngine().getStateMachine().getShowAllActions(f.getType()) || getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
-				} else {
-					actions.setShowAll(OrganizePane.this.engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
-				}
-			}
-		});
+		engine.getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_ALL_ACTIONS,
+				evt -> {
+					Folder f= actions.getFolder();
+					if (f!=null) {
+						actions.setShowAll(getEngine().getStateMachine().getShowAllActions(f.getType()) || getEngine().getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
+					} else {
+						actions.setShowAll(OrganizePane.this.engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
+					}
+				});
 		folders.setShowClosedFolders(engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_CLOSED_FOLDERS));
-		engine.getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_CLOSED_FOLDERS, new PropertyChangeListener() {
-			public void propertyChange(PropertyChangeEvent evt) {
-				folders.setShowClosedFolders(OrganizePane.this.engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_CLOSED_FOLDERS));
-			}
-		});
+		engine.getGlobalProperties().addPropertyChangeListener(GlobalProperties.SHOW_CLOSED_FOLDERS,
+				evt -> folders.setShowClosedFolders(OrganizePane.this.engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_CLOSED_FOLDERS)));
 	}
 
 	public OrganizePane() {
@@ -119,38 +115,34 @@ public class OrganizePane extends JPanel {
 		jp.setLayout(new GridBagLayout());
 
 		folders= new FolderPanel();
-		folders.addPropertyChangeListener("selectedFolder", new PropertyChangeListener() {
-		
-			public void propertyChange(PropertyChangeEvent evt) {
-				Folder f= folders.getSelectedFolder();
-				if (f!=null) {
-					if (f.getType() == Folder.FolderType.INBUCKET) {
-						actions.setCellAction(CellAction.DELETE);
-					} else {
-						actions.setCellAction(CellAction.RESOLVE);
-					}
-					actions.setCellAction(CellAction.RESOLVE);
-					actions.setFolder(f,engine.getStateMachine().getShowAllActions(f.getType()) || engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
-					if (f.isProject()) {
-						actionsPanel.setTitle("Project: "+f.getName());
-					} else {
-						actionsPanel.setTitle("List: "+f.getName());
-					}
-					setting=true;
-					description.setText(f.getDescription());
-					setting=false;
-					actionPanel.setReopenButtonVisible(f.getType() == Folder.FolderType.BUILDIN_DELETED || f.getType() == Folder.FolderType.BUILDIN_RESOLVED);
+		folders.addPropertyChangeListener("selectedFolder", evt -> {
+			Folder f= folders.getSelectedFolder();
+			if (f!=null) {
+				if (f.getType() == Folder.FolderType.INBUCKET) {
+					actions.setCellAction(CellAction.DELETE);
 				} else {
-					actions.setFolder(f,engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
-					description.setText("");
-					actionsPanel.setTitle("");
 					actions.setCellAction(CellAction.RESOLVE);
-					actionPanel.setReopenButtonVisible(false);
 				}
-				description.setEditable(f!=null && (f.isUserFolder() || f.isProject()));
-				purgeDeletedButton.setVisible(f==getEngine().getGTDModel().getDeletedFolder());
+				actions.setCellAction(CellAction.RESOLVE);
+				actions.setFolder(f,engine.getStateMachine().getShowAllActions(f.getType()) || engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
+				if (f.isProject()) {
+					actionsPanel.setTitle("Project: "+f.getName());
+				} else {
+					actionsPanel.setTitle("List: "+f.getName());
+				}
+				setting=true;
+				description.setText(f.getDescription());
+				setting=false;
+				actionPanel.setReopenButtonVisible(f.getType() == Folder.FolderType.BUILDIN_DELETED || f.getType() == Folder.FolderType.BUILDIN_RESOLVED);
+			} else {
+				actions.setFolder(f,engine.getGlobalProperties().getBoolean(GlobalProperties.SHOW_ALL_ACTIONS));
+				description.setText("");
+				actionsPanel.setTitle("");
+				actions.setCellAction(CellAction.RESOLVE);
+				actionPanel.setReopenButtonVisible(false);
 			}
-		
+			description.setEditable(f!=null && (f.isUserFolder() || f.isProject()));
+			purgeDeletedButton.setVisible(f==getEngine().getGTDModel().getDeletedFolder());
 		});
 		jp.add(folders,new GridBagConstraints(0,0,2,1,1,1,GridBagConstraints.CENTER,GridBagConstraints.BOTH,new Insets(0,0,0,0),0,0));
 		split.setLeftComponent(jp);
@@ -163,11 +155,8 @@ public class OrganizePane extends JPanel {
 		actions= new ActionTable();
 		actions.setMoveEnabled(true);
 		actions.setCellAction(CellAction.RESOLVE);
-		actions.addPropertyChangeListener("selectedAction", new PropertyChangeListener() {
-			public void propertyChange(PropertyChangeEvent evt) {
-				actionPanel.setAction(actions.getSelectedAction());
-			}
-		});
+		actions.addPropertyChangeListener("selectedAction",
+				evt -> actionPanel.setAction(actions.getSelectedAction()));
 		//jsppp.setBackground(actions.getCellRenderer(0,0).getTableCellRendererComponent(actions, ApplicationHelper.EMPTY_STRING, false, false, 0, 0).getBackground());
 		//jsppp.setOpaque(false);
 		

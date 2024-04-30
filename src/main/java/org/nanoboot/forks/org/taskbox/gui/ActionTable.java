@@ -100,11 +100,11 @@ public class ActionTable extends JTable {
 	public static final String SELECTED_ACTION_PROPERTY_NAME = "selectedAction";
 
 	
-	public static List<SortKey> EMPTY_KEYS= Collections.emptyList();
+	public static final List<SortKey> EMPTY_KEYS= Collections.emptyList();
 
-	public static enum CellAction {RESOLVE,DELETE,REOPEN};
-	
-	class DescriptionCellEditor extends DefaultCellEditor implements TableCellEditor {
+	public enum CellAction {RESOLVE,DELETE,REOPEN}
+
+	static class DescriptionCellEditor extends DefaultCellEditor implements TableCellEditor {
 		private static final long serialVersionUID = 1L;
 		
 		public DescriptionCellEditor() {
@@ -147,17 +147,14 @@ public class ActionTable extends JTable {
 	
 	class ProjectCellEditor extends AbstractCellEditor implements TableCellEditor {
 		private static final long serialVersionUID = 1L;
-		ProjectsCombo combo;
+		final ProjectsCombo combo;
 		Project p;
 		
 		public ProjectCellEditor() {
 			super();
 			combo= new ProjectsCombo();
-			combo.addPropertyChangeListener("selectedProject", new PropertyChangeListener() {
-				public void propertyChange(PropertyChangeEvent evt) {
-					stopCellEditing();
-				}
-			});
+			combo.addPropertyChangeListener("selectedProject",
+					evt -> stopCellEditing());
 			combo.addFocusListener(new FocusListener() {
 			
 				public void focusLost(FocusEvent e) {
@@ -208,10 +205,10 @@ public class ActionTable extends JTable {
 		}
 	}
   
-	class PriorityCellEditor extends AbstractCellEditor implements TableCellEditor {
+	static class PriorityCellEditor extends AbstractCellEditor implements TableCellEditor {
 		private static final long serialVersionUID = 1L;
-		private Color editColor= new Color(232,242,254);
-		PriorityPicker pp;
+		private final Color editColor= new Color(232,242,254);
+		final PriorityPicker pp;
 		Priority p;
 		boolean editing= false;
 		boolean setting= false;
@@ -231,13 +228,11 @@ public class ActionTable extends JTable {
 				}
 			};
 			
-			pp.addPropertyChangeListener("priority", new PropertyChangeListener() {
-				public void propertyChange(PropertyChangeEvent evt) {
-					if (setting) {
-						return;
-					}
-					stopCellEditing();
+			pp.addPropertyChangeListener("priority", evt -> {
+				if (setting) {
+					return;
 				}
+				stopCellEditing();
 			});
 			pp.addFocusListener(new FocusListener() {
 			
@@ -294,9 +289,9 @@ public class ActionTable extends JTable {
 		}
 	}
 	
-	class PriorityCellRenderer implements TableCellRenderer {
+	static class PriorityCellRenderer implements TableCellRenderer {
 		private static final long serialVersionUID = 1L;
-		PriorityPicker pp;
+		final PriorityPicker pp;
 		
 		public PriorityCellRenderer() {
 			super();
@@ -327,8 +322,7 @@ public class ActionTable extends JTable {
 			} else {
 				pp.setBackground(table.getBackground());
 			}
-			if (value instanceof Priority) {
-				Priority p= (Priority)value;
+			if (value instanceof Priority p) {
 				pp.setPriority(p);
 			} else {
 				pp.setPriority(null);
@@ -339,7 +333,7 @@ public class ActionTable extends JTable {
 
 	public class ActionTableModel extends AbstractTableModel implements TableModel {
 		private static final long serialVersionUID = 1L;
-		private List<Action> data= new ArrayList<Action>();
+		private final List<Action> data= new ArrayList<>();
 
 		/*private void sort() {
 			if (comparator!=null) {
@@ -349,30 +343,19 @@ public class ActionTable extends JTable {
 		
 		public Object getValueAt(int rowIndex, int columnIndex) {
 			Action i= data.get(rowIndex);
-			switch (columnIndex) {
-				case 0:
-					return i.getId();
-				case 1:
-					return i.getDescription();
-				case 2:
-					return i.getResolution();
-				case 3:
-					return i.getRemind();
-				case 4:
-					return i;
-				case 5:
-					return i.getProject();
-				case 6:
-					return i.getFolder();
-				case 7:
-					return i;
-				case 8:
-					return i.getResolved();
-				case 9:
-					return i.getPriority();
-				default:
-					return i;
-			}
+			return switch (columnIndex) {
+				case 0 -> i.getId();
+				case 1 -> i.getDescription();
+				case 2 -> i.getResolution();
+				case 3 -> i.getRemind();
+				case 4 -> i;
+				case 5 -> i.getProject();
+				case 6 -> i.getFolder();
+				case 7 -> i;
+				case 8 -> i.getResolved();
+				case 9 -> i.getPriority();
+				default -> i;
+			};
 		}
 		
 		public Action getAction(int rowIndex) {
@@ -517,47 +500,30 @@ public class ActionTable extends JTable {
 		}
 		@Override
 		public Class<?> getColumnClass(int columnIndex) {
-			switch (columnIndex) {
-				case 0:
-					return Integer.class;
-				case 1:
-					return String.class;
-				case 2:
-					return Action.Resolution.class;
-				case 3:
-					return Date.class;
-				case 4:
-					return Action.class;
-				case 5:
-					return Project.class;
-				case 6:
-					return Folder.class;
-				case 7:
-					return Action.class;
-				case 8:
-					return Date.class;
-				case 9:
-					return Priority.class;
-				default:
-					return Action.class;
-				}
+			return switch (columnIndex) {
+				case 0 -> Integer.class;
+				case 1 -> String.class;
+				case 2 -> Action.Resolution.class;
+				case 3 -> Date.class;
+				case 4 -> Action.class;
+				case 5 -> Project.class;
+				case 6 -> Folder.class;
+				case 7 -> Action.class;
+				case 8 -> Date.class;
+				case 9 -> Priority.class;
+				default -> Action.class;
+			};
 		}
 		@Override
 		public String getColumnName(int column) {
-			switch (column) {
-				case 0:
-					return "ID"; //$NON-NLS-1$
-				case 1:
-					return "Action"; //$NON-NLS-1$
-				case 2:
-					return "Resolution"; //$NON-NLS-1$
-				case 3:
-					return "Remind"; //$NON-NLS-1$
-				case 9:
-					return "Priority";
-				default:
-					return ApplicationHelper.EMPTY_STRING;
-			}
+			return switch (column) {
+				case 0 -> "ID"; //$NON-NLS-1$
+				case 1 -> "Action"; //$NON-NLS-1$
+				case 2 -> "Resolution"; //$NON-NLS-1$
+				case 3 -> "Remind"; //$NON-NLS-1$
+				case 9 -> "Priority";
+				default -> ApplicationHelper.EMPTY_STRING;
+			};
 		}
 
 		public void remove(int row) {
@@ -579,7 +545,7 @@ public class ActionTable extends JTable {
 	
 	class CellActionEditor extends AbstractCellEditor implements TableCellEditor, TableCellRenderer {
 		private static final long serialVersionUID = 1L;
-		private JButton button;
+		private final JButton button;
 		private Action note;
 		private CellAction a;
 		private Action.Resolution resolution;
@@ -588,15 +554,11 @@ public class ActionTable extends JTable {
 			button= new JButton();
 			button.setMargin(new Insets(0,0,0,0));
 			button.setBackground(getBackground());
-			button.addActionListener(new ActionListener() {
-			
-				public void actionPerformed(ActionEvent e) {
-					stopCellEditing();
-					if (note!=null) {
-						note.setResolution(resolution);
-					}
+			button.addActionListener(e -> {
+				stopCellEditing();
+				if (note!=null) {
+					note.setResolution(resolution);
 				}
-			
 			});
 		}
 		
@@ -665,7 +627,7 @@ public class ActionTable extends JTable {
 	
 	class QueueCellEditor extends AbstractCellEditor implements TableCellEditor, TableCellRenderer {
 		private static final long serialVersionUID = 1L;
-		private JToggleButton button;
+		private final JToggleButton button;
 		private Action note;
 		
 		public QueueCellEditor() {
@@ -676,15 +638,11 @@ public class ActionTable extends JTable {
 			button.setSelectedIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_queue_on));
 			button.setDisabledSelectedIcon(ApplicationHelper.getIcon(ApplicationHelper.icon_name_small_queue_off));
 			button.setBackground(getBackground());
-			button.addActionListener(new ActionListener() {
-			
-				public void actionPerformed(ActionEvent e) {
-					stopCellEditing();
-					if (note!=null) {
-						note.setQueued(button.isSelected());
-					}
+			button.addActionListener(e -> {
+				stopCellEditing();
+				if (note!=null) {
+					note.setQueued(button.isSelected());
 				}
-			
 			});
 		}
 		
@@ -710,8 +668,7 @@ public class ActionTable extends JTable {
 		}
 
 		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-			if (value instanceof Action) {
-				Action n=(Action)value;
+			if (value instanceof Action n) {
 				button.setEnabled(n.isOpen());
 				if (n.isOpen()) {
 					button.setSelected(n.isQueued());
@@ -737,40 +694,26 @@ public class ActionTable extends JTable {
 			super(model);
 			
 			setSortsOnUpdates(true);
-			setComparator(4, new Comparator<Action>() {
-			
-				public int compare(Action o1, Action o2) {
-					if (o1.isQueued() && !o2.isQueued()) {
-						return -1;
-					}
-					if (!o1.isQueued() && o2.isQueued()) {
-						return 1;
-					}
-					return 0;
+			setComparator(4, (Comparator<Action>) (o1, o2) -> {
+				if (o1.isQueued() && !o2.isQueued()) {
+					return -1;
 				}
-			
+				if (!o1.isQueued() && o2.isQueued()) {
+					return 1;
+				}
+				return 0;
 			});
-			setComparator(7, new Comparator<Action>() {
-				
-				public int compare(Action o1, Action o2) {
-					if (o1.isOpen() && !o2.isOpen()) {
-						return -1;
-					}
-					if (!o1.isOpen() && o2.isOpen()) {
-						return 1;
-					}
-					return 0;
+			setComparator(7, (Comparator<Action>) (o1, o2) -> {
+				if (o1.isOpen() && !o2.isOpen()) {
+					return -1;
 				}
-			
+				if (!o1.isOpen() && o2.isOpen()) {
+					return 1;
+				}
+				return 0;
 			});
 			
-			addRowSorterListener(new RowSorterListener() {
-			
-				@Override
-				public void sorterChanged(RowSorterEvent e) {
-					enableMoveActions();
-				}
-			});
+			addRowSorterListener(e -> enableMoveActions());
 		}
 		
 		public boolean isTransformed() {
@@ -783,7 +726,7 @@ public class ActionTable extends JTable {
 	protected Folder folder;
 	private ActionTableModel model;
 	private boolean showAll=false;
-	private FolderListener folderListener = new FolderListener() {
+	private final FolderListener folderListener = new FolderListener() {
 		
 		public void elementRemoved(FolderEvent note) {
 			model.remove(note.getAction());
@@ -1030,8 +973,7 @@ public class ActionTable extends JTable {
 				public Component getTableCellRendererComponent(JTable table,
 						Object value, boolean isSelected, boolean hasFocus,
 						int row, int column) {
-					if (value instanceof Date) {
-						Date d= (Date)value;
+					if (value instanceof Date d) {
 						value= ApplicationHelper.toISODateString(d);
 						//System.out.println(d.getTime()+" "+value);
 					}
@@ -1240,12 +1182,12 @@ public class ActionTable extends JTable {
 		setAutoResizeMode(JTable.AUTO_RESIZE_NEXT_COLUMN);
 		setAutoCreateColumnsFromModel(false);
 		
-		Set<AWTKeyStroke> set= new HashSet<AWTKeyStroke>();
+		Set<AWTKeyStroke> set= new HashSet<>();
 		set.add(AWTKeyStroke.getAWTKeyStroke(KeyEvent.VK_TAB,0));
 		set.add(AWTKeyStroke.getAWTKeyStroke(KeyEvent.VK_TAB,InputEvent.CTRL_MASK));
 		setFocusTraversalKeys(KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS, set);
 
-		set= new HashSet<AWTKeyStroke>();
+		set= new HashSet<>();
 		set.add(AWTKeyStroke.getAWTKeyStroke(KeyEvent.VK_TAB,InputEvent.SHIFT_DOWN_MASK));
 		set.add(AWTKeyStroke.getAWTKeyStroke(KeyEvent.VK_TAB,InputEvent.CTRL_MASK | InputEvent.SHIFT_DOWN_MASK));
 		setFocusTraversalKeys(KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS, set);
@@ -1288,26 +1230,22 @@ public class ActionTable extends JTable {
 			
 		});
 		
-		getSelectionModel().addListSelectionListener(new ListSelectionListener() {
-		
-			public void valueChanged(ListSelectionEvent e) {
-				if (!e.getValueIsAdjusting()) {
-					Action old= selectedAction;
-					int i= getSelectedRow();
-					if (i>-1&&i<model.getRowCount()) {
-						selectedAction= model.getAction(convertRowIndexToModel(i));
-					} else {
-						selectedAction= null;
-					}
-					enableMoveActions();
-					try {
-						firePropertyChange(SELECTED_ACTION_PROPERTY_NAME, old, selectedAction);
-					} catch (Exception ex) {
-						ex.printStackTrace();
-					}
+		getSelectionModel().addListSelectionListener(e -> {
+			if (!e.getValueIsAdjusting()) {
+				Action old= selectedAction;
+				int i= getSelectedRow();
+				if (i>-1&&i<model.getRowCount()) {
+					selectedAction= model.getAction(convertRowIndexToModel(i));
+				} else {
+					selectedAction= null;
+				}
+				enableMoveActions();
+				try {
+					firePropertyChange(SELECTED_ACTION_PROPERTY_NAME, old, selectedAction);
+				} catch (Exception ex) {
+					ex.printStackTrace();
 				}
 			}
-		
 		});
 		
 		
@@ -1590,7 +1528,7 @@ public class ActionTable extends JTable {
 	}
 	
 	public void setEngine(GTDBoxEngine e) {
-		engine=e;;
+		engine=e;
 
 		if (projectEditor!=null) {
 			projectEditor.setGTDModel(engine.getGTDModel());

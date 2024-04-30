@@ -42,8 +42,8 @@ public class GlobalProperties {
 	public static final String SHOW_QUICK_COLLECT = "showQuickCollectBar";
 	public static final String AUTO_SAVE = "autoSave";
 	
-	private Properties prop= new Properties();
-	private PropertyChangeSupport pcs= new PropertyChangeSupport(this);
+	private final Properties prop= new Properties();
+	private final PropertyChangeSupport pcs= new PropertyChangeSupport(this);
 	
 	public void addPropertyChangeListener(String s, PropertyChangeListener l) {
 		pcs.addPropertyChangeListener(s, l);
@@ -84,13 +84,13 @@ public class GlobalProperties {
 		}
 		
 		if (o instanceof Boolean) {
-			return ((Boolean)o).booleanValue();
+			return (Boolean) o;
 		}
 		
 		Boolean b= Boolean.valueOf(o.toString());
 		prop.put(s, b);
 		
-		return b.booleanValue();
+		return b;
 	}
 	
 	public Integer getInteger(String s) {
@@ -124,8 +124,7 @@ public class GlobalProperties {
 			
 			Object o= prop.get(s);
 			
-			if (o instanceof int[]) {
-				int[] ii= (int[])o;
+			if (o instanceof int[] ii) {
 				StringBuilder sb= new StringBuilder();
 				
 				if (ii.length>0) {
@@ -137,8 +136,7 @@ public class GlobalProperties {
 					sb.append(ii[i]);
 				}
 				p.put(s, sb.toString());
-			} else if (o instanceof boolean[]) {
-				boolean[] ii= (boolean[])o;
+			} else if (o instanceof boolean[] ii) {
 				StringBuilder sb= new StringBuilder(ii.length*6);
 				
 				if (ii.length>0) {
@@ -172,7 +170,7 @@ public class GlobalProperties {
 		if (o instanceof String && s.length()>0) {
 			String[] ss= o.toString().split(",");
 			if (ss!=null && ss.length>0) {
-				List<Integer> il= new ArrayList<Integer>(ss.length);
+				List<Integer> il= new ArrayList<>(ss.length);
 				for (int i = 0; i < ss.length; i++) {
 					ss[i]=ss[i].trim();
 					if (ss[i].length()>0) {
@@ -211,7 +209,7 @@ public class GlobalProperties {
 				boolean[] ii= new boolean[ss.length];
 				for (int i = 0; i < ii.length; i++) {
 					try {
-						ii[i]= Boolean.valueOf(ss[i]);
+						ii[i]= Boolean.parseBoolean(ss[i]);
 					} catch (Exception e) {
 						e.printStackTrace();
 					}

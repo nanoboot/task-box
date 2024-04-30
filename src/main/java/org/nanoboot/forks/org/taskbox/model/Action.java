@@ -30,8 +30,9 @@ public final class Action {
 	public static final String REMIND_PROPERTY_NAME= "remind";
 	public static final String PRIORITY_PROPERTY_NAME= "priority";
 
-	public enum ActionType {Mail,Phone,Meet,Read,Watch};
-	public static enum Resolution {
+	public enum ActionType {Mail,Phone,Meet,Read,Watch}
+
+	public enum Resolution {
 		OPEN,DELETED,RESOLVED,STALLED;
 		
 		public static Resolution toResolution(String s) {
@@ -43,10 +44,10 @@ public final class Action {
 			}
 			return valueOf(s);
 		}
-	};
-	
-	private int id;
-	private Date created;
+	}
+
+	private final int id;
+	private final Date created;
 	private Date resolved;
 	private String description;
 	private Resolution resolution = Resolution.OPEN;

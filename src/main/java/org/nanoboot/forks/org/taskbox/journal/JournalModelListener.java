@@ -25,6 +25,6 @@ package org.nanoboot.forks.org.taskbox.journal;
  */
 public interface JournalModelListener extends JournalEntryListener {
 	
-	public void journalEntryAdded(JournalEntryEvent e);
+	void journalEntryAdded(JournalEntryEvent e);
 
 }

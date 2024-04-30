@@ -48,9 +48,8 @@ public class DescriptionFilter implements ActionFilter {
 	
 	@Override
 	public boolean equals(Object obj) {
-		if (obj instanceof DescriptionFilter) {
-			DescriptionFilter f= (DescriptionFilter)obj;
-			
+		if (obj instanceof DescriptionFilter f) {
+
 			return f.caseSensitive==caseSensitive && f.criterion==criterion;
 			
 		}

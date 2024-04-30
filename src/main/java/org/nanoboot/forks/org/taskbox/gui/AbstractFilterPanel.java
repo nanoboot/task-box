@@ -57,11 +57,9 @@ public abstract class AbstractFilterPanel extends JPanel {
 	 */
 	public void setTable(ActionTable t) {
 		this.table = t;
-		table.addPropertyChangeListener("folder",new PropertyChangeListener() {
-			public void propertyChange(PropertyChangeEvent evt) {
-				clearFilters();
-				setEnabled(table.getFolder()!=null);
-			}
+		table.addPropertyChangeListener("folder", evt -> {
+			clearFilters();
+			setEnabled(table.getFolder()!=null);
 		});
 		setEnabled(table.getFolder()!=null);
 	}

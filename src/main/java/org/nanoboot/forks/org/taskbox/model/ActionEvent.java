@@ -31,7 +31,7 @@ public class ActionEvent extends EventObject {
 	
 	private static final long serialVersionUID = 1L;
 
-	private Action action;
+	private final Action action;
 	private String property;
 	private Object oldValue;
 	private Object newValue;
