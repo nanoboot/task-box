@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamReader;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.lang3.StringEscapeUtils;
 
 import junit.framework.TestCase;
 

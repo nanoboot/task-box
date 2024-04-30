@@ -40,7 +40,7 @@ import javax.swing.ImageIcon;
 import javax.swing.UIManager;
 import javax.swing.plaf.FontUIResource;
 
-import org.apache.commons.lang.CharUtils;
+import org.apache.commons.lang3.CharUtils;
 
 /**
  * @author ikesan
