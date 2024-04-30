@@ -17,41 +17,56 @@
  *    along with GTD-Free.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.gtdfree.test;
-
-import java.util.Properties;
+package org.gtdfree;
 
 import junit.framework.TestCase;
 
-import org.gtdfree.GTDFreeEngine;
+import org.gtdfree.journal.JournalTools;
 
 /**
  * @author ikesan
  *
  */
-public class GTDFreeEngineTest extends TestCase {
+public class JournalToolsTest extends TestCase {
+
+	public void testTool() throws Exception {
+		
+		long time0= System.currentTimeMillis();
+		
+		long day0= JournalTools.today();
+		
+		long day1= JournalTools.toDay(time0);
+
+		assertEquals(day0, day1);
+
+		long time1= JournalTools.toDate(day0).getTime();
+		
+		assertTrue(time0-time1<JournalTools.MILLIS_IN_DAY);
+		
+		day1= JournalTools.toDay(time1);
+		
+		assertEquals(day0, day1);
+		
+		day1++;
+		
+		time1= JournalTools.toDate(day1).getTime();
+		
+		assertEquals(day1,JournalTools.toDay(time1));
+		
+		testTime(0);
+		
+		testTime(JournalTools.MILLIS_IN_DAY);
+		
+	}
 	
-	GTDFreeEngine engine;
+	private void testTime(long time) {
+		
+		long day0= JournalTools.toDay(time);
 
-	/* (non-Javadoc)
-	 * @see junit.framework.TestCase#setUp()
-	 */
-	@Override
-	protected void setUp() throws Exception {
+		long time0= JournalTools.toDate(day0).getTime();
 
-		engine= new GTDFreeEngine();
+		assertEquals(time, time0);
 
 	}
 	
-	public void testInitialization() {
-		
-		Properties p= engine.getConfiguration();
-		
-		assertNotNull(p);
-		assertNotNull(p.getProperty("user.home"));
-		assertNotNull(p.getProperty("build.version"));
-		assertNotNull(p.getProperty("build.type"));
-		
-	}
-
 }

@@ -17,7 +17,7 @@
  *    along with GTD-Free.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.gtdfree.test;
+package org.gtdfree;
 
 import junit.framework.Test;
 import junit.framework.TestSuite;

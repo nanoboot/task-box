@@ -67,7 +67,7 @@ public final class ApplicationHelper {
 	public static final String DEFAULT_DATA_FILE_NAME= "gtd-free-data.xml";
 	public static final String SHUTDOWN_EMERGENCY_BACKUP_DATA_FILE_NAME= "gtd-free-data.shutdown_backup.xml";
 	public static final String BACKUP_DATA_FILE_NAME_PART= "gtd-free-data.backup";
-	public static final String DEFAULT_DATA_FOLDER_NAME= ".gtd-free";
+	public static final String DEFAULT_DATA_FOLDER_NAME= ".gtd-box";
 	public static final String CONFIGURATION_FILE_NAME="gtd-free-config.properties";
 	public static final String OPTIONS_FILE_NAME="gtd-free-options.properties";
 
