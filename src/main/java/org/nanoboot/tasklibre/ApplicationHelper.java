@@ -158,7 +158,8 @@ public final class ApplicationHelper {
     private static final SimpleDateFormat readableISODateTimeFormat =
             new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     private static final Map<String, ImageIcon> iconCache = new HashMap<>(50);
-    public static String DEFAULT_SIMPLE_DATE_FORMAT_STRING = "MMM dd, yy";
+    public static String DEFAULT_SIMPLE_DATE_FORMAT_STRING = "yyyy-MM-dd";
+    public static final SimpleDateFormat DEFAULT_SIMPLE_DATE_FORMAT = new SimpleDateFormat(DEFAULT_SIMPLE_DATE_FORMAT_STRING);
     public static String icon_name_large_search =
             "icons/gnome/16x16/actions/edit-find.png";
     private static File dataFile;

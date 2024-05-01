@@ -415,10 +415,11 @@ public class ActionPanel extends JPanel implements FolderListener {
         pp.setLayout(new GridBagLayout());
 
         datePicker = new JCalendarComboBox();
+        datePicker.setDateFormat(ApplicationHelper.DEFAULT_SIMPLE_DATE_FORMAT);
         datePicker.setMinimumSize(
-                new Dimension(125, datePicker.getPreferredSize().height - 3));
+                new Dimension(135, datePicker.getPreferredSize().height - 3));
         datePicker.setPreferredSize(
-                new Dimension(125, datePicker.getPreferredSize().height - 3));
+                new Dimension(135, datePicker.getPreferredSize().height - 3));
         d = new Dimension(datePicker.getPreferredSize().height,
                 datePicker.getPreferredSize().height);
         datePicker.setDate(null);
