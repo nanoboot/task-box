@@ -103,7 +103,15 @@
             <version>0.9.0-SNAPSHOT</version>
         </dependency>
 
-
     </dependencies>
+
+    <repositories>
+        <repository>
+            <id>snapshots</id>
+            <name>nanoboot-snapshots-repository</name>
+            <url>https://maven.nanoboot.org/snapshots</url>
+        </repository>
+    </repositories>
+
 
 </project>
