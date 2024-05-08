@@ -1,20 +1,20 @@
 /*
  *    Copyright (C) 2008 Igor Kriznar Copyright (C) 2024 Robert Vokac
  *
- *    This file is part of Task-Libre.
+ *    This file is part of Task Libre.
  *
- *    Task-Libre is free software: you can redistribute it and/or modify
+ *    Task Libre is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
  *    the Free Software Foundation, either version 3 of the License, or
  *    (at your option) any later version.
  *
- *    Task-Libre is distributed in the hope that it will be useful,
+ *    Task Libre is distributed in the hope that it will be useful,
  *    but WITHOUT ANY WARRANTY; without even the implied warranty of
  *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *    GNU General Public License for more details.
  *
  *    You should have received a copy of the GNU General Public License
- *    along with Task-Libre.  If not, see <http://www.gnu.org/licenses/>.
+ *    along with Task Libre.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 package org.nanoboot.tasklibre.gui;
@@ -72,7 +72,7 @@ public class ImportExampleDialog {
             int row = 0;
 
             JLabel l = new JLabel(
-                    "Import Task-Libre database file with demo list and some helpful actions.");
+                    "Import Task Libre database file with demo list and some helpful actions.");
             p.add(l, new GridBagConstraints(0, row++, 2, 1, 1, 0,
                     GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL,
                     new Insets(11, 11, 11, 11), 0, 0));
@@ -87,7 +87,7 @@ public class ImportExampleDialog {
                     new Insets(4, 11, 0, 11), 0, 0));
 
             l = new JLabel(
-                    "Download and import latest examples from Task-Libre web site.");
+                    "Download and import latest examples from Task Libre web site.");
             l.setFont(l.getFont().deriveFont(Font.ITALIC));
             p.add(l, new GridBagConstraints(0, row++, 2, 1, 1, 0,
                     GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL,

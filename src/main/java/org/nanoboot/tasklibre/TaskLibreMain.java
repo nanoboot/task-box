@@ -1,20 +1,20 @@
 /*
  *    Copyright (C) 2008 Igor Kriznar Copyright (C) 2024 Robert Vokac
  *
- *    This file is part of Task-Libre.
+ *    This file is part of Task Libre.
  *
- *    Task-Libre is free software: you can redistribute it and/or modify
+ *    Task Libre is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
  *    the Free Software Foundation, either version 3 of the License, or
  *    (at your option) any later version.
  *
- *    Task-Libre is distributed in the hope that it will be useful,
+ *    Task Libre is distributed in the hope that it will be useful,
  *    but WITHOUT ANY WARRANTY; without even the implied warranty of
  *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *    GNU General Public License for more details.
  *
  *    You should have received a copy of the GNU General Public License
- *    along with Task-Libre.  If not, see <http://www.gnu.org/licenses/>.
+ *    along with Task Libre.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 package org.nanoboot.tasklibre;
@@ -157,7 +157,7 @@ public class TaskLibreMain {
 
         //ApplicationHelper.changeDefaultFontStyle(Font.BOLD, "Tree");
 
-        System.out.print("Task-Libre");
+        System.out.print("Task Libre");
         try {
             System.out.println(
                     " version " + ApplicationHelper.loadConfiguration()
@@ -180,7 +180,7 @@ public class TaskLibreMain {
 
         if (!ApplicationHelper.tryLock(f)) {
             System.out
-                    .println("Instance of Task-Libre already running, exiting.");
+                    .println("Instance of Task Libre already running, exiting.");
             System.exit(0);
         }
 
@@ -240,7 +240,7 @@ public class TaskLibreMain {
             if (!windowTitleSuffix.isBlank()) {
                 windowTitleSuffix = " (" + windowTitleSuffix + ")";
             }
-            jFrame.setTitle("Task-Libre" + windowTitleSuffix);
+            jFrame.setTitle("Task Libre" + windowTitleSuffix);
             jFrame.setIconImage(ApplicationHelper.loadImage("splash96.png"));
             jFrame.addWindowListener(new WindowAdapter() {
 
@@ -844,7 +844,7 @@ public class TaskLibreMain {
             helpMenu = new JMenu();
             helpMenu.setText("Help");
 
-            JMenuItem jmi = new JMenuItem("Task-Libre Home Page");
+            JMenuItem jmi = new JMenuItem("Task Libre Home Page");
             jmi.setIcon(ApplicationHelper
                     .getIcon(ApplicationHelper.icon_name_large_browser));
             jmi.addActionListener(e -> {
@@ -915,7 +915,7 @@ public class TaskLibreMain {
     private JDialog getAboutDialog() {
         if (aboutDialog == null) {
             aboutDialog = new JDialog(getJFrame(), true);
-            aboutDialog.setTitle("About Task-Libre");
+            aboutDialog.setTitle("About Task Libre");
             Image i = ApplicationHelper.loadImage("splash48.png");
             ImageIcon ii = new ImageIcon(i);
 
@@ -923,7 +923,7 @@ public class TaskLibreMain {
 
             JPanel jp = new JPanel();
             jp.setLayout(new GridBagLayout());
-            JLabel jl = new JLabel("Task-Libre", ii, SwingConstants.CENTER);
+            JLabel jl = new JLabel("Task Libre", ii, SwingConstants.CENTER);
             jl.setIconTextGap(22);
             jl.setFont(jl.getFont().deriveFont((float) 24));
             jp.add(jl, new GridBagConstraints(0, 0, 1, 1, 1, 0,
@@ -1087,7 +1087,7 @@ public class TaskLibreMain {
             fileChooser.setMultiSelectionEnabled(false);
             fileChooser.setFileHidingEnabled(false);
             fileChooser.setFileFilter(
-                    new FileNameExtensionFilter("Task-Libre XML file", "xml"));
+                    new FileNameExtensionFilter("Task Libre XML file", "xml"));
         }
         return fileChooser;
     }

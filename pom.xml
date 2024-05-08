@@ -11,8 +11,8 @@
     <version>0.7.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>Task-Libre</name>
-    <description>Task-Libre is personal TODO/action manager inspired by GTD (Getting Things Done®) method by David Allen</description>
+    <name>Task Libre</name>
+    <description>Task Libre is personal TODO/action manager inspired by GTD (Getting Things Done®) method by David Allen</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

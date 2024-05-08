@@ -1,20 +1,20 @@
 /*
  *    Copyright (C) 2008 Igor Kriznar Copyright (C) 2024 Robert Vokac
  *
- *    This file is part of Task-Libre.
+ *    This file is part of Task Libre.
  *
- *    Task-Libre is free software: you can redistribute it and/or modify
+ *    Task Libre is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
  *    the Free Software Foundation, either version 3 of the License, or
  *    (at your option) any later version.
  *
- *    Task-Libre is distributed in the hope that it will be useful,
+ *    Task Libre is distributed in the hope that it will be useful,
  *    but WITHOUT ANY WARRANTY; without even the implied warranty of
  *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *    GNU General Public License for more details.
  *
  *    You should have received a copy of the GNU General Public License
- *    along with Task-Libre.  If not, see <http://www.gnu.org/licenses/>.
+ *    along with Task Libre.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 package org.nanoboot.tasklibre;
@@ -106,7 +106,7 @@ public class TaskLibreEngine {
 
             int option = JOptionPane.showConfirmDialog(
                     null,
-                    "Your data was NOT properly loaded into the Task-Libre because of file loading error: \n\""
+                    "Your data was NOT properly loaded into the Task Libre because of file loading error: \n\""
                     +
                     e.toString().replace(". ", ".\n") +
                     "\"\n\nDo you want to abort the application with no changes made to data files, make backup of data folder and manually corect problem?"
@@ -119,7 +119,7 @@ public class TaskLibreEngine {
                     getDataFile().getName() +
                     "' has ten backup copies, they are named as" +
                     "\ntask-libre-data.backupN.xml where 'N' stands for numbers from 0 to 9.",
-                    "Task-Libre - Error Loading Data File",
+                    "Task Libre - Error Loading Data File",
                     JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
             if (option == JOptionPane.YES_OPTION) {
                 autoSave = false;
@@ -137,7 +137,7 @@ public class TaskLibreEngine {
 
         int option = JOptionPane.showConfirmDialog(
                 null,
-                "Your data was NOT properly loaded into the Task-Libre because of file loading error: \n\""
+                "Your data was NOT properly loaded into the Task Libre because of file loading error: \n\""
                 +
                 e.toString().replace(". ", ".\n") +
                 "\"\n\nDo you want to try to load backup file '" +
@@ -155,7 +155,7 @@ public class TaskLibreEngine {
                 getDataFile().getName() +
                 "' has ten backup copies, they are named as" +
                 "\ntask-libre-data.backupN.xml where 'N' stands for numbers from 0 to 9.",
-                "Task-Libre - Error Loading Data File",
+                "Task Libre - Error Loading Data File",
                 JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.ERROR_MESSAGE);
         if (option == JOptionPane.YES_OPTION) {
             try {
@@ -374,7 +374,7 @@ public class TaskLibreEngine {
                 int option = JOptionPane.showConfirmDialog(
                         null,
                         "Do you want to save changes before closing?\nChanges will permamantly lost if \"No\" is pressed.",
-                        "Task-Libre Closing!",
+                        "Task Libre Closing!",
                         JOptionPane.YES_NO_CANCEL_OPTION,
                         JOptionPane.WARNING_MESSAGE);
 
